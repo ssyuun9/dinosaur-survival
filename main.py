@@ -47,6 +47,7 @@ game_html = """
             overflow: hidden;
             background-color: #000;
             font-family: 'Noto Sans KR', sans-serif;
+            user-select: none;
         }
         #game-canvas {
             width: 100%;
@@ -105,6 +106,7 @@ game_html = """
             padding: 10px 20px;
             border-radius: 20px;
             display: none;
+            text-align: center;
         }
         #exit-btn-container {
             position: absolute;
@@ -124,7 +126,7 @@ game_html = """
             pointer-events: none;
         }
     </style>
-    <!-- Three.js 및 PointerLockControls 스크립트 로드 -->
+    <!-- Three.js 스크립트 로드 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
@@ -135,7 +137,7 @@ game_html = """
     </div>
 
     <div id="ui-layer">
-        <div id="instruction">스페이스바(Space)를 누르면 조종을 시작합니다 (마우스 360도 회전)</div>
+        <div id="instruction">스페이스바(Space)를 누르면 조종을 시작합니다.<br>(화면을 클릭하면 마우스 360도 회전 시점이 활성화됩니다)</div>
         <div id="crosshair"></div>
         <div id="exit-btn-container" class="interactive">
             <button id="exit-btn">나가기</button>
@@ -164,6 +166,15 @@ game_html = """
         const exitBtnContainer = document.getElementById('exit-btn-container');
         const exitBtn = document.getElementById('exit-btn');
         const crosshair = document.getElementById('crosshair');
+
+        function requestLock() {
+            if (gameState === "FIRST_PERSON" || gameState === "OUTSIDE") {
+                const element = document.body;
+                if (element.requestPointerLock) {
+                    element.requestPointerLock();
+                }
+            }
+        }
 
         function init() {
             scene = new THREE.Scene();
@@ -196,10 +207,10 @@ game_html = """
             startBtn.addEventListener('click', startGame);
             exitBtn.addEventListener('click', goOutside);
 
-            // 마우스 락 클릭 이벤트
-            canvas.addEventListener('click', () => {
-                if (gameState === "FIRST_PERSON" || gameState === "OUTSIDE") {
-                    canvas.requestPointerLock();
+            // 화면 클릭 시 마우스 포인터 고정 (360도 회전 활성화)
+            document.body.addEventListener('click', (e) => {
+                if (e.target.tagName !== 'BUTTON') {
+                    requestLock();
                 }
             });
 
@@ -262,12 +273,14 @@ game_html = """
             if (characterMesh) scene.remove(characterMesh); // 1인칭이므로 몸체 숨김
 
             playerPos.set(0, 1.6, 0);
-            canvas.requestPointerLock();
+            requestLock();
         }
 
         // 3. 집 밖으로 나가기 (도로 및 학교 로딩)
         function goOutside() {
-            document.exitPointerLock();
+            if (document.exitPointerLock) {
+                document.exitPointerLock();
+            }
             exitBtnContainer.style.display = 'none';
             gameState = "OUTSIDE";
 
@@ -296,7 +309,7 @@ game_html = """
             abductionTriggerX = 200;
             abductionTriggerZ = -500;
 
-            canvas.requestPointerLock();
+            requestLock();
         }
 
         // 도로, 건물, 학교 지형 생성
@@ -340,7 +353,9 @@ game_html = """
         function triggerAbduction() {
             isAbducted = true;
             gameState = "ABDUCTED";
-            document.exitPointerLock();
+            if (document.exitPointerLock) {
+                document.exitPointerLock();
+            }
 
             // UFO 생성
             ufoGroup = new THREE.Group();
@@ -383,12 +398,16 @@ game_html = """
             if (e.code === 'KeyD') moveRight = false;
         }
 
-        // 마우스 이동을 통한 360도 및 위아래 시점 조작 (Pointer Lock)
+        // 마우스 이동을 통한 360도 및 위아래 시점 조작
         function onMouseMove(e) {
-            if (document.pointerLockElement === canvas) {
+            if (document.pointerLockElement === document.body || document.pointerLockElement === canvas) {
                 const sensitivity = 0.002;
-                yaw -= e.movementX * sensitivity;
-                pitch -= e.movementY * sensitivity;
+                
+                const movementX = e.movementX || e.mozMovementX || e.webkitMovementX || 0;
+                const movementY = e.movementY || e.mozMovementY || e.webkitMovementY || 0;
+
+                yaw -= movementX * sensitivity;
+                pitch -= movementY * sensitivity;
 
                 // 위아래 시점 제한 (-89도 ~ 89도)
                 pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, pitch));
@@ -408,7 +427,6 @@ game_html = """
             // 1인칭 및 야외 조종 이동 처리
             if (gameState === "FIRST_PERSON" || gameState === "OUTSIDE") {
                 const speed = gameState === "OUTSIDE" ? 0.8 : 0.15;
-                const dir = new THREE.Vector3();
 
                 // 카메라 회전 계산
                 camera.rotation.order = "YXZ";
