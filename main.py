@@ -2,47 +2,86 @@ import streamlit as st
 import streamlit.components.v1 as components
 import random
 import time
+import base64
 
-# 페이지 기본 설정
-st.set_page_config(page_title="공룡 시대 생존기", page_icon="🦖", layout="centered")
+# 1. 페이지 및 전체 화면 CSS 설정
+st.set_page_config(page_title="공룡 시대 생존기", page_icon="🦖", layout="wide")
 
-# --- CSS 스타일링 (화면 연출용) ---
-st.markdown("""
+# 로컬 이미지를 Base64로 변환하여 CSS 배경으로 사용하는 함수 (이미지 파일이 동일 폴더 내 있을 경우)
+def get_base64_of_bin_file(bin_file):
+    try:
+        with open(bin_file, 'rb') as f:
+            data = f.read()
+        return base64.b64encode(data).decode()
+    except FileNotFoundError:
+        return None
+
+# 배경 이미지 처리 (로컬 파일명: background.png 기준)
+bg_base64 = get_base64_of_bin_file('background.png')
+
+if bg_base64:
+    bg_style = f"""
+        background-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)), url("data:image/png;base64,{bg_base64}");
+    """
+else:
+    # 기본 이미지 URL (온라인 경로 사용 시)
+    bg_style = """
+        background-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)), url('https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1920');
+    """
+
+st.markdown(f"""
     <style>
-    .story-box {
-        background-color: #1e1e1e;
-        color: #00ff66;
-        padding: 20px;
-        border-radius: 10px;
-        font-family: 'Courier New', monospace;
-        font-size: 18px;
+    /* Streamlit 여백 제거 및 전체 화면 구성 */
+    .block-container {{
+        padding-top: 0.2rem !important;
+        padding-bottom: 0rem !important;
+        padding-left: 0.2rem !important;
+        padding-right: 0.2rem !important;
+        max-width: 100% !important;
+    }}
+    header {{visibility: hidden;}}
+    footer {{visibility: hidden;}}
+
+    /* 시작 화면 전용 배경 스타일 */
+    .title-screen {{
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        {bg_style}
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 999;
+    }}
+
+    .title-box {{
+        background: rgba(0, 0, 0, 0.65);
+        padding: 40px 60px;
+        border-radius: 20px;
         border: 2px solid #00ff66;
-        margin-bottom: 20px;
-    }
-    .egg-crack {
+        box-shadow: 0 0 30px rgba(0, 255, 102, 0.4);
+        text-align: center;
+        color: white;
+    }}
+
+    .egg-crack {{
         text-align: center;
         font-size: 80px;
-        animation: shake 0.5s infinite;
-    }
-    @keyframes shake {
-        0% { transform: translate(1px, 1px) rotate(0deg); }
-        20% { transform: translate(-3px, 0px) rotate(1deg); }
-        40% { transform: translate(1px, -1px) rotate(-1deg); }
-        60% { transform: translate(-3px, 1px) rotate(0deg); }
-        80% { transform: translate(1px, 1px) rotate(1deg); }
-        100% { transform: translate(1px, -2px) rotate(-1deg); }
-    }
-    .flash-screen {
-        background-color: white;
-        height: 100vh;
-    }
+        user-select: none;
+    }}
     </style>
 """, unsafe_allow_html=True)
 
 # --- 데이터 정의 ---
 ERA_DATA = {
     "트라이아스기": {
-        "desc": "초대륙 판게아의 건조하고 뜨거운 땅. 공룡들이 막 등장하기 시작한 시대입니다.",
+        "desc": "초대륙 판게아의 건조하고 뜨거운 땅. 초기 공룡들이 막 등장하기 시작한 시대입니다.",
         "dinos": [
             {"name": "에오랍토르", "color": "#00ff88", "hp": 80, "desc": "크기는 작지만 날렵한 잡식 공룡"},
             {"name": "코엘로피시스", "color": "#ffaa00", "hp": 70, "desc": "날카로운 이빨을 가진 빠른 육식 공룡"}
@@ -54,7 +93,7 @@ ERA_DATA = {
         ]
     },
     "쥐라기": {
-        "desc": "울창한 침엽수림과 거대한 거대 용각류가 지배하는 온난한 시대입니다.",
+        "desc": "울창한 침엽수림과 거대한 용각류가 지배하는 온난한 시대입니다.",
         "dinos": [
             {"name": "알로사우루스", "color": "#ff3333", "hp": 120, "desc": "쥐라기 최고의 맹렬한 포식자"},
             {"name": "스테고사우루스", "color": "#3388ff", "hp": 150, "desc": "등의 골판과 꼬리 가시를 가진 초식 공룡"}
@@ -81,9 +120,7 @@ ERA_DATA = {
 
 # --- 세션 상태 초기화 ---
 if 'stage' not in st.session_state:
-    st.session_state.stage = 'STORY_INTRO'  # STORY_INTRO -> ERA_SELECT -> FLASH -> EGG -> DINO_3D -> PLAYING
-if 'intro_step' not in st.session_state:
-    st.session_state.intro_step = 0
+    st.session_state.stage = 'TITLE'  # TITLE -> STORY_3D -> ERA_SELECT -> FLASH -> EGG -> DINO_3D -> PLAYING
 if 'selected_era' not in st.session_state:
     st.session_state.selected_era = None
 if 'player_dino' not in st.session_state:
@@ -97,7 +134,341 @@ if 'day' not in st.session_state:
 if 'logs' not in st.session_state:
     st.session_state.logs = []
 
-# --- 3D 공룡 렌더링 함수 (Three.js) ---
+# --- 3D 인터랙티브 월드 (Three.js 기반) ---
+def render_interactive_3d_world():
+    html_code = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; }
+            #canvas-container { width: 100vw; height: 78vh; position: relative; user-select: none; }
+            #ui-box {
+                position: absolute; bottom: 15px; left: 50%;
+                transform: translateX(-50%);
+                background: rgba(0,0,0,0.85); color: #00ff66;
+                padding: 12px 24px; border-radius: 8px;
+                border: 2px solid #00ff66; font-size: 16px; text-align: center;
+                z-index: 5; pointer-events: none;
+            }
+            #door-handle-btn {
+                position: absolute; top: 15px; left: 50%;
+                transform: translateX(-50%);
+                background: #ffcc00; color: #000; font-weight: bold;
+                padding: 12px 24px; border-radius: 8px; font-size: 18px;
+                border: 2px solid #fff; cursor: pointer; display: none; z-index: 20;
+                box-shadow: 0 0 15px #ffcc00;
+            }
+            #guide-overlay {
+                position: absolute; top: 10px; left: 10px;
+                background: rgba(0,0,0,0.7); color: #fff;
+                padding: 10px 14px; border-radius: 6px; font-size: 13px;
+                z-index: 10; pointer-events: none;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="canvas-container">
+            <div id="guide-overlay">
+                🖱️ <b>화면 클릭 후 드래그:</b> 360도 & 위아래 시점 회전<br>
+                ⌨️ <b>W, A, S, D:</b> 이동 (이동 시 1인칭으로 자동 전환)
+            </div>
+            <button id="door-handle-btn" onclick="openDoorAndExit()">✊ 문손잡이 잡고 문 열기</button>
+            <div id="ui-box">💬 거실에 서 있습니다. 마우스와 키보드로 조작을 시작하세요.</div>
+        </div>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+        <script>
+            let container = document.getElementById('canvas-container');
+            let scene = new THREE.Scene();
+            let camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+            let renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            let uiBox = document.getElementById('ui-box');
+            let doorBtn = document.getElementById('door-handle-btn');
+
+            let currentZone = 0; // 0: 집 안, 1: 도시
+            let isFirstPerson = false; // 시작은 탑뷰
+
+            // 조작 및 시점 변수
+            let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+            let isMouseDown = false;
+            let mouseX = 0, mouseY = 0;
+            let lon = -90, lat = -20; // 초기 각도
+            let phi = 0, theta = 0;
+            
+            // 로블록스 스타일 캐릭터
+            let playerGroup = new THREE.Group();
+            let charBody, charHead;
+
+            function createRobloxCharacter() {
+                let bodyGeo = new THREE.BoxGeometry(0.8, 1.0, 0.4);
+                let bodyMat = new THREE.MeshStandardMaterial({ color: 0x0088ff });
+                charBody = new THREE.Mesh(bodyGeo, bodyMat);
+                charBody.position.y = 0.5;
+
+                let headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+                let headMat = new THREE.MeshStandardMaterial({ color: 0xffcc99 });
+                charHead = new THREE.Mesh(headGeo, headMat);
+                charHead.position.y = 1.25;
+
+                playerGroup.add(charBody, charHead);
+                playerGroup.position.set(0, 0, 0);
+            }
+
+            // 키보드 이벤트
+            window.addEventListener('keydown', (e) => {
+                switch (e.code) {
+                    case 'KeyW': moveForward = true; break;
+                    case 'KeyA': moveLeft = true; break;
+                    case 'KeyS': moveBackward = true; break;
+                    case 'KeyD': moveRight = true; break;
+                }
+                if (moveForward || moveBackward || moveLeft || moveRight) {
+                    if (!isFirstPerson && currentZone === 0) {
+                        isFirstPerson = true; // 이동 시작 시 1인칭 전환
+                    }
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                switch (e.code) {
+                    case 'KeyW': moveForward = false; break;
+                    case 'KeyA': moveLeft = false; break;
+                    case 'KeyS': moveBackward = false; break;
+                    case 'KeyD': moveRight = false; break;
+                }
+            });
+
+            // 마우스 드래그 시점 회전 (360도 + 위아래)
+            container.addEventListener('mousedown', (e) => {
+                isMouseDown = true;
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+            window.addEventListener('mouseup', () => { isMouseDown = false; });
+            window.addEventListener('mousemove', (e) => {
+                if (isMouseDown) {
+                    lon += (e.clientX - mouseX) * 0.3;
+                    lat -= (e.clientY - mouseY) * 0.3;
+                    lat = Math.max(-85, Math.min(85, lat)); // 위아래 회전 제한
+                    mouseX = e.clientX;
+                    mouseY = e.clientY;
+                }
+            });
+
+            // --- 환경 구축 ---
+            let houseGroup = new THREE.Group();
+            let cityGroup = new THREE.Group();
+            let doorMesh, handleMesh;
+
+            function buildHouse() {
+                scene.background = new THREE.Color(0x1a1a1a);
+                createRobloxCharacter();
+                houseGroup.add(playerGroup);
+
+                // 바닥
+                let floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), new THREE.MeshStandardMaterial({ color: 0x8b5a2b }));
+                floor.rotation.x = -Math.PI / 2;
+                houseGroup.add(floor);
+
+                // 벽
+                let wallMat = new THREE.MeshStandardMaterial({ color: 0xdddddd });
+                let wall1 = new THREE.Mesh(new THREE.BoxGeometry(16, 4, 0.2), wallMat); wall1.position.set(0, 2, -8);
+                let wall2 = new THREE.Mesh(new THREE.BoxGeometry(16, 4, 0.2), wallMat); wall2.position.set(0, 2, 8);
+                let wall3 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 4, 16), wallMat); wall3.position.set(-8, 2, 0);
+                houseGroup.add(wall1, wall2, wall3);
+
+                // 현관문 & 문손잡이 (오른쪽 벽)
+                doorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.5, 2), new THREE.MeshStandardMaterial({ color: 0x553311 }));
+                doorMesh.position.set(7.9, 1.75, 0);
+                
+                handleMesh = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), new THREE.MeshStandardMaterial({ color: 0xffd700 }));
+                handleMesh.position.set(7.7, 1.75, 0.6);
+                houseGroup.add(doorMesh, handleMesh);
+
+                // 가구
+                let sofa = new THREE.Mesh(new THREE.BoxGeometry(3, 1, 1.5), new THREE.MeshStandardMaterial({ color: 0x992222 }));
+                sofa.position.set(-4, 0.5, -4);
+                houseGroup.add(sofa);
+
+                scene.add(houseGroup);
+            }
+
+            let ufoGroup = new THREE.Group();
+            let ufoBeam = null;
+
+            function buildCity() {
+                scene.remove(houseGroup);
+                scene.background = new THREE.Color(0x87ceeb);
+
+                // 도로
+                let road = new THREE.Mesh(new THREE.PlaneGeometry(30, 80), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+                road.rotation.x = -Math.PI / 2;
+                cityGroup.add(road);
+
+                // 횡단보도 (아이스크림 가게 앞)
+                for (let i = -6; i <= 6; i += 2.5) {
+                    let stripe = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 6), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+                    stripe.rotation.x = -Math.PI / 2;
+                    stripe.position.set(i, 0.01, -15);
+                    cityGroup.add(stripe);
+                }
+
+                // 건물들
+                for(let i = -30; i <= 30; i += 15) {
+                    if (i === -15) continue; // 가게 자리 비워둠
+                    let b1 = new THREE.Mesh(new THREE.BoxGeometry(8, 12 + Math.random()*8, 8), new THREE.MeshStandardMaterial({ color: 0x778899 }));
+                    b1.position.set(-10, 6, i);
+                    let b2 = new THREE.Mesh(new THREE.BoxGeometry(8, 12 + Math.random()*8, 8), new THREE.MeshStandardMaterial({ color: 0x778899 }));
+                    b2.position.set(10, 6, i);
+                    cityGroup.add(b1, b2);
+                }
+
+                // 아이스크림 가게 (횡단보도 건너편)
+                let shop = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 8), new THREE.MeshStandardMaterial({ color: 0xff6699 }));
+                shop.position.set(0, 2.5, -25);
+                cityGroup.add(shop);
+
+                // 아이스크림 간판
+                let sign = new THREE.Mesh(new THREE.ConeGeometry(1.2, 2.5, 8), new THREE.MeshStandardMaterial({ color: 0xffcc00 }));
+                sign.position.set(0, 6.5, -21);
+                cityGroup.add(sign);
+
+                // UFO (처음에는 숨김)
+                let ufoDisc = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 0.8, 16), new THREE.MeshStandardMaterial({ color: 0x555555 }));
+                let ufoDome = new THREE.Mesh(new THREE.SphereGeometry(2, 16, 16), new THREE.MeshStandardMaterial({ color: 0x00ff00, transparent: true, opacity: 0.8 }));
+                ufoDome.position.y = 0.4;
+                ufoGroup.add(ufoDisc, ufoDome);
+                ufoGroup.position.set(0, 18, -15); // 횡단보도 상공
+                ufoGroup.visible = false;
+                cityGroup.add(ufoGroup);
+
+                // 도시 진입 후 플레이어 위치
+                playerGroup.position.set(0, 0, 15);
+                cityGroup.add(playerGroup);
+
+                scene.add(cityGroup);
+                uiBox.innerText = "🍦 밖으로 나왔습니다! 횡단보도 건너편 아이스크림 가게로 가세요.";
+            }
+
+            // 조명
+            let light = new THREE.DirectionalLight(0xffffff, 1);
+            light.position.set(10, 20, 10);
+            scene.add(light);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+
+            buildHouse();
+
+            // 문열기 동작
+            window.openDoorAndExit = function() {
+                doorMesh.rotation.y = -Math.PI / 2;
+                handleMesh.position.x = 7.9;
+                doorBtn.style.display = 'none';
+                uiBox.innerText = "🚪 문이 열렸습니다. 밖으로 나갑니다...";
+                
+                setTimeout(() => {
+                    currentZone = 1;
+                    isFirstPerson = true;
+                    buildCity();
+                }, 800);
+            };
+
+            let captured = false;
+            let floatSpeed = 0.08;
+            let isFloating = false;
+
+            function animate() {
+                requestAnimationFrame(animate);
+
+                // 시점 계산
+                lat = Math.max(-85, Math.min(85, lat));
+                phi = THREE.MathUtils.degToRad(90 - lat);
+                theta = THREE.MathUtils.degToRad(lon);
+
+                let dir = new THREE.Vector3();
+                dir.x = Math.sin(phi) * Math.cos(theta);
+                dir.y = Math.cos(phi);
+                dir.z = Math.sin(phi) * Math.sin(theta);
+                dir.normalize();
+
+                let moveDir = new THREE.Vector3(dir.x, 0, dir.z).normalize();
+                let sideDir = new THREE.Vector3(-moveDir.z, 0, moveDir.x);
+
+                let speed = 0.12;
+
+                // 이동 제어
+                if (!isFloating) {
+                    if (moveForward) playerGroup.position.addScaledVector(moveDir, speed);
+                    if (moveBackward) playerGroup.position.addScaledVector(moveDir, -speed);
+                    if (moveLeft) playerGroup.position.addScaledVector(sideDir, -speed);
+                    if (moveRight) playerGroup.position.addScaledVector(sideDir, speed);
+                }
+
+                // 카메라 위치 업데이트
+                if (isFirstPerson) {
+                    camera.position.set(playerGroup.position.x, playerGroup.position.y + 1.4, playerGroup.position.z);
+                    let target = new THREE.Vector3().addVectors(camera.position, dir);
+                    camera.lookAt(target);
+                } else {
+                    camera.position.set(playerGroup.position.x, playerGroup.position.y + 5, playerGroup.position.z + 4);
+                    camera.lookAt(playerGroup.position);
+                }
+
+                // 1. 집 안
+                if (currentZone === 0) {
+                    if (playerGroup.position.x > 5.5 && Math.abs(playerGroup.position.z) < 2.5) {
+                        doorBtn.style.display = 'block';
+                        uiBox.innerText = "🚪 현관문 문손잡이에 도달했습니다. 버튼을 눌러 문을 여세요!";
+                    } else {
+                        doorBtn.style.display = 'none';
+                        if (isFirstPerson) {
+                            uiBox.innerText = "💬 현관문(오른쪽 벽) 문손잡이로 걸어가세요.";
+                        }
+                    }
+                }
+
+                // 2. 도시
+                if (currentZone === 1 && !captured) {
+                    if (playerGroup.position.z < -8) {
+                        captured = true;
+                        isFloating = true;
+                        ufoGroup.visible = true;
+
+                        let beamGeo = new THREE.CylinderGeometry(2, 3.5, 20, 16);
+                        let beamMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.6 });
+                        ufoBeam = new THREE.Mesh(beamGeo, beamMat);
+                        ufoBeam.position.set(0, 8, -15);
+                        cityGroup.add(ufoBeam);
+
+                        uiBox.innerText = "🛸 갑자기 하늘에서 UFO가 나타나 캐릭터를 붕 띄워 빨아들입니다!!";
+                    }
+                }
+
+                // 부양 애니메이션
+                if (isFloating) {
+                    playerGroup.position.y += floatSpeed;
+                    playerGroup.rotation.y += 0.1;
+                    if (playerGroup.position.y > 15) {
+                        isFloating = false;
+                        uiBox.innerText = "🌀 외계인 UFO에 완전히 빨려 들어갔습니다...";
+                    }
+                }
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+        </script>
+    </body>
+    </html>
+    """
+    components.html(html_code, height=660)
+
+# 3D 공룡 렌더링
 def render_3d_dino(dino_name, dino_color):
     html_code = f"""
     <div id="dino-3d-container" style="width: 100%; height: 350px; background-color: #111; border-radius: 10px;"></div>
@@ -110,49 +481,34 @@ def render_3d_dino(dino_name, dino_color):
         renderer.setSize(container.clientWidth, container.clientHeight);
         container.appendChild(renderer.domElement);
 
-        // 조명
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
         scene.add(ambientLight);
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
         dirLight.position.set(5, 10, 7);
         scene.add(dirLight);
 
-        // 공룡 그룹 (3D 입체 도형으로 조립)
         const dinoGroup = new THREE.Group();
         const material = new THREE.MeshStandardMaterial({{ color: '{dino_color}', roughness: 0.4 }});
 
-        // 몸통
-        const bodyGeo = new THREE.BoxGeometry(1.5, 1.2, 2);
-        const body = new THREE.Mesh(bodyGeo, material);
+        const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.2, 2), material);
         dinoGroup.add(body);
-
-        // 머리
-        const headGeo = new THREE.BoxGeometry(1, 0.9, 1.3);
-        const head = new THREE.Mesh(headGeo, material);
+        const head = new THREE.Mesh(new THREE.BoxGeometry(1, 0.9, 1.3), material);
         head.position.set(0, 0.8, 1.2);
         dinoGroup.add(head);
-
-        // 꼬리
-        const tailGeo = new THREE.ConeGeometry(0.5, 2.5, 8);
-        const tail = new THREE.Mesh(tailGeo, material);
+        const tail = new THREE.Mesh(new THREE.ConeGeometry(0.5, 2.5, 8), material);
         tail.rotation.x = -Math.PI / 3;
         tail.position.set(0, -0.2, -1.8);
         dinoGroup.add(tail);
 
-        // 다리
         const legGeo = new THREE.CylinderGeometry(0.3, 0.3, 1.2, 8);
-        const leg1 = new THREE.Mesh(legGeo, material);
-        leg1.position.set(-0.6, -1, 0);
-        const leg2 = new THREE.Mesh(legGeo, material);
-        leg2.position.set(0.6, -1, 0);
-        dinoGroup.add(leg1);
-        dinoGroup.add(leg2);
+        const leg1 = new THREE.Mesh(legGeo, material); leg1.position.set(-0.6, -1, 0);
+        const leg2 = new THREE.Mesh(legGeo, material); leg2.position.set(0.6, -1, 0);
+        dinoGroup.add(leg1); dinoGroup.add(leg2);
 
         scene.add(dinoGroup);
         camera.position.set(3, 2, 5);
         camera.lookAt(0, 0, 0);
 
-        // 회전 애니메이션
         function animate() {{
             requestAnimationFrame(animate);
             dinoGroup.rotation.y += 0.02;
@@ -164,49 +520,52 @@ def render_3d_dino(dino_name, dino_color):
     components.html(html_code, height=370)
 
 # ==========================================
-# 게임 진행 스테이지별 제어
+# 게임 진행 단계
 # ==========================================
 
-# 1. 스토리 오프닝 (가정집 -> UFO 납치)
-if st.session_state.stage == 'STORY_INTRO':
-    st.title("🏠 일상적인 어느 날...")
+# 0. 시작 화면 (이미지 배경 적용)
+if st.session_state.stage == 'TITLE':
+    st.markdown("""
+        <div class="title-screen">
+            <div class="title-box">
+                <h1 style="font-size: 50px; margin-bottom: 10px;">🦖 공룡 시대 생존기 🛸</h1>
+                <p style="font-size: 20px; color: #ddd; margin-bottom: 30px;">일상에서 공룡 시대로! 1인칭 직접 조작 생존 게임</p>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
     
-    story_scripts = [
-        "평범한 주말 오후, 당신은 집 안 거실에 서 있습니다.",
-        "문득 달콤한 아이스크림이 먹고 싶어져 밖으로 나갑니다. 🍦",
-        "아이스크림 가게로 향하던 중, 갑자기 하늘이 요란하게 반짝입니다!",
-        "하늘을 올려다보니 초록색 외계인이 타고 있는 UFO가 나타났습니다! 🛸👽",
-        "우웅---! 강한 빛과 함께 당신은 UFO 안으로 빨려 들어갑니다!!"
-    ]
-    
-    current_text = story_scripts[st.session_state.intro_step]
-    st.markdown(f'<div class="story-box">💬 {current_text}</div>', unsafe_allow_html=True)
-    
-    if st.session_state.intro_step < len(story_scripts) - 1:
-        if st.button("다음 ▶"):
-            st.session_state.intro_step += 1
+    # CSS 전체 화면 레이아웃 위에 버튼 배치
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("<br><br><br><br><br><br><br><br><br><br><br><br><br><br>", unsafe_allow_html=True)
+        if st.button("🎮 게임 시작하기", use_container_width=True):
+            st.session_state.stage = 'STORY_3D'
             st.rerun()
-    else:
-        if st.button("정신 차리기 🌀"):
-            st.session_state.stage = 'ERA_SELECT'
-            st.rerun()
+
+# 1. 3D 직접 조작 탐색
+elif st.session_state.stage == 'STORY_3D':
+    render_interactive_3d_world()
+    
+    if st.button("🌀 UFO에 납치되어 다음 단계로 진행", use_container_width=True):
+        st.session_state.stage = 'ERA_SELECT'
+        st.rerun()
 
 # 2. 시대 선택
 elif st.session_state.stage == 'ERA_SELECT':
     st.title("🌀 시간의 틈새")
-    st.subheader("정신을 차려보니 시공간이 일그러져 있습니다. 떨어질 시대를 선택하세요!")
+    st.subheader("정신을 차려보니 시공간이 일그러져 있습니다. 살아남을 시대를 선택하세요!")
     
     era_choice = st.radio("시대를 선택하세요:", list(ERA_DATA.keys()))
     st.info(ERA_DATA[era_choice]["desc"])
     
-    if st.button("이 시대로 뛰어들기 🚀"):
+    if st.button("이 시대로 뛰어들기 🚀", use_container_width=True):
         st.session_state.selected_era = era_choice
         st.session_state.player_dino = random.choice(ERA_DATA[era_choice]["dinos"])
         st.session_state.hp = st.session_state.player_dino["hp"]
         st.session_state.stage = 'FLASH'
         st.rerun()
 
-# 3. 번쩍이는 효과 연출
+# 3. 번쩍이는 연출
 elif st.session_state.stage == 'FLASH':
     flash_holder = st.empty()
     flash_holder.markdown("<h1 style='text-align: center; font-size: 100px;'>⚡⚡⚡</h1>", unsafe_allow_html=True)
@@ -220,15 +579,14 @@ elif st.session_state.stage == 'EGG':
     st.caption("눈을 떠보니 좁고 컴컴한 공간입니다.")
     
     egg_states = ["🥚", "🥚 (금 가기 시작)", "🥚💥 (금이 쩍쩍 갈라집니다!)", "🐣 부화 성공!"]
-    
     st.markdown(f'<div class="egg-crack">{egg_states[st.session_state.crack_count]}</div>', unsafe_allow_html=True)
     
     if st.session_state.crack_count < 3:
-        if st.button("알 껍질 밀어내기! 🔨"):
+        if st.button("알 껍질 밀어내기! 🔨", use_container_width=True):
             st.session_state.crack_count += 1
             st.rerun()
     else:
-        if st.button("밖으로 나가기 ✨"):
+        if st.button("밖으로 나가기 ✨", use_container_width=True):
             st.session_state.stage = 'DINO_3D'
             st.rerun()
 
@@ -238,7 +596,6 @@ elif st.session_state.stage == 'DINO_3D':
     st.title(f"🦖 당신은 **{dino['name']}**(으)로 태어났습니다!")
     st.write(dino['desc'])
     
-    # 3D 입체 모델 출력
     render_3d_dino(dino['name'], dino['color'])
     
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -248,7 +605,7 @@ elif st.session_state.stage == 'DINO_3D':
             st.session_state.logs.append(f"[{st.session_state.selected_era}] 시대에 {dino['name']}(으)로 생존을 시작합니다!")
             st.rerun()
 
-# 6. 메인 1인칭 생존 게임
+# 6. 메인 생존 게임
 elif st.session_state.stage == 'PLAYING':
     dino = st.session_state.player_dino
     era = st.session_state.selected_era
@@ -285,7 +642,7 @@ elif st.session_state.stage == 'PLAYING':
             st.session_state.logs.append(f"[{st.session_state.day-1}일차] 휴식을 취했습니다.")
             
         if st.session_state.hp <= 0:
-            st.error("☠️ 체력이 다하여 생존에 실패했습니다...")
+            st.error("☠ 체력이 다하여 생존에 실패했습니다...")
             if st.button("처음부터 다시하기"):
                 st.session_state.clear()
                 st.rerun()
