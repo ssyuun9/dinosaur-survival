@@ -141,7 +141,7 @@ game_html = """
     </div>
 
     <div id="ui-layer">
-        <div id="instruction">스페이스바(Space)를 누르면 조종을 시작합니다.<br>(마우스를 드래그하면 360도 시점이 회전합니다)</div>
+        <div id="instruction">스페이스바(Space)를 누르면 조종을 시작합니다.<br>(마우스 버튼을 누른 채 드래그해야 화면이 회전합니다)</div>
         <div id="crosshair"></div>
         <div id="exit-btn-container" class="interactive">
             <button id="exit-btn">나가기</button>
@@ -156,7 +156,7 @@ game_html = """
         let gameState = "START"; // START, LIVING_ROOM_TOP, FIRST_PERSON, OUTSIDE, ABDUCTED
         let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
         let yaw = 0, pitch = 0;
-        let isMouseDown = false;
+        let isMouseDown = false; // 마우스 클릭 여부 확인
         let previousMousePosition = { x: 0, y: 0 };
         let playerPos = new THREE.Vector3(0, 1.6, 0);
         let characterMesh;
@@ -200,7 +200,7 @@ game_html = """
             document.addEventListener('keydown', onKeyDown);
             document.addEventListener('keyup', onKeyUp);
 
-            // 마우스 기반 360도 드래그 회전 이벤트 (Streamlit iframe 제약 해결)
+            // 마우스 클릭 시에만 화면 회전 처리
             window.addEventListener('mousedown', (e) => {
                 isMouseDown = true;
                 previousMousePosition = { x: e.clientX, y: e.clientY };
@@ -211,19 +211,16 @@ game_html = """
             });
 
             window.addEventListener('mousemove', (e) => {
-                if (gameState === "FIRST_PERSON" || gameState === "OUTSIDE") {
-                    // 마우스가 눌려있거나, 클릭 상태 관계없이 360도 조작 가능하도록 설정
+                if ((gameState === "FIRST_PERSON" || gameState === "OUTSIDE") && isMouseDown) {
                     const deltaX = e.clientX - previousMousePosition.x;
                     const deltaY = e.clientY - previousMousePosition.y;
 
-                    if (isMouseDown || true) { 
-                        const sensitivity = 0.004;
-                        yaw -= deltaX * sensitivity;
-                        pitch -= deltaY * sensitivity;
+                    const sensitivity = 0.004;
+                    yaw -= deltaX * sensitivity;
+                    pitch -= deltaY * sensitivity;
 
-                        // 위아래 제한 (-89도 ~ 89도)
-                        pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, pitch));
-                    }
+                    // 위아래 제한 (-89도 ~ 89도)
+                    pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, pitch));
 
                     previousMousePosition = { x: e.clientX, y: e.clientY };
                 }
