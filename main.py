@@ -156,7 +156,7 @@ game_html = """
         let gameState = "START"; // START, LIVING_ROOM_TOP, FIRST_PERSON, OUTSIDE, ABDUCTED
         let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
         let yaw = 0, pitch = 0;
-        let isMouseDown = false; // 마우스 클릭 여부 확인
+        let isMouseDown = false;
         let previousMousePosition = { x: 0, y: 0 };
         let playerPos = new THREE.Vector3(0, 1.6, 0);
         let characterMesh;
@@ -292,7 +292,7 @@ game_html = """
             pitch = 0;
         }
 
-        // 3. 집 밖으로 나가기 (도로 및 학교 로딩)
+        // 3. 집 밖으로 나가기 (도로 및 건물, 학교 로딩)
         function goOutside() {
             exitBtnContainer.style.display = 'none';
             gameState = "OUTSIDE";
@@ -310,7 +310,7 @@ game_html = """
             sun.position.set(100, 200, 100);
             scene.add(sun);
 
-            // 1km 굴곡 도로 및 배경 생성 (좌회전 1회, 우회전 1회 포함)
+            // 1km 굴곡 도로 및 다수의 건물, 학교 생성
             createCityAndRoad();
 
             // 플레이어 위치 초기화
@@ -323,7 +323,7 @@ game_html = """
             abductionTriggerZ = -500;
         }
 
-        // 도로, 건물, 학교 지형 생성
+        // 도로, 많은 건물, 학교 지형 생성
         function createCityAndRoad() {
             const roadMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
             const grassMat = new THREE.MeshStandardMaterial({ color: 0x2e8b57 });
@@ -347,6 +347,48 @@ game_html = """
             const r3 = new THREE.Mesh(new THREE.BoxGeometry(20, 0.1, 500), roadMat);
             r3.position.set(200, 0.05, -550);
             scene.add(r3);
+
+            // 건물 색상 패럿
+            const colors = [0xd1ccc0, 0x84817a, 0xcc8e35, 0xaaa69d, 0x40407a, 0x227093];
+
+            // 1) 구간 1 양옆 건물 배치
+            for(let z = -20; z > -280; z -= 30) {
+                let h1 = 15 + Math.random() * 25;
+                let b1 = new THREE.Mesh(new THREE.BoxGeometry(20, h1, 20), new THREE.MeshStandardMaterial({ color: colors[Math.floor(Math.random() * colors.length)] }));
+                b1.position.set(-25, h1/2, z);
+                scene.add(b1);
+
+                let h2 = 15 + Math.random() * 25;
+                let b2 = new THREE.Mesh(new THREE.BoxGeometry(20, h2, 20), new THREE.MeshStandardMaterial({ color: colors[Math.floor(Math.random() * colors.length)] }));
+                b2.position.set(25, h2/2, z);
+                scene.add(b2);
+            }
+
+            // 2) 구간 2 양옆 건물 배치
+            for(let x = 10; x < 190; x += 30) {
+                let h1 = 15 + Math.random() * 25;
+                let b1 = new THREE.Mesh(new THREE.BoxGeometry(20, h1, 20), new THREE.MeshStandardMaterial({ color: colors[Math.floor(Math.random() * colors.length)] }));
+                b1.position.set(x, h1/2, -275);
+                scene.add(b1);
+
+                let h2 = 15 + Math.random() * 25;
+                let b2 = new THREE.Mesh(new THREE.BoxGeometry(20, h2, 20), new THREE.MeshStandardMaterial({ color: colors[Math.floor(Math.random() * colors.length)] }));
+                b2.position.set(x, h2/2, -325);
+                scene.add(b2);
+            }
+
+            // 3) 구간 3 양옆 건물 배치
+            for(let z = -330; z > -750; z -= 35) {
+                let h1 = 15 + Math.random() * 30;
+                let b1 = new THREE.Mesh(new THREE.BoxGeometry(20, h1, 20), new THREE.MeshStandardMaterial({ color: colors[Math.floor(Math.random() * colors.length)] }));
+                b1.position.set(175, h1/2, z);
+                scene.add(b1);
+
+                let h2 = 15 + Math.random() * 30;
+                let b2 = new THREE.Mesh(new THREE.BoxGeometry(20, h2, 20), new THREE.MeshStandardMaterial({ color: colors[Math.floor(Math.random() * colors.length)] }));
+                b2.position.set(225, h2/2, z);
+                scene.add(b2);
+            }
 
             // 학교 교문 & 운동장 (약 1km 거리 지점)
             const playground = new THREE.Mesh(new THREE.PlaneGeometry(200, 150), new THREE.MeshStandardMaterial({ color: 0xc2b280 }));
@@ -416,11 +458,11 @@ game_html = """
         function animate() {
             requestAnimationFrame(animate);
 
-            // 1인칭 및 야외 조종 이동 처리
+            // 1인칭 및 야외 지속 조종 이동 처리
             if (gameState === "FIRST_PERSON" || gameState === "OUTSIDE") {
                 const speed = gameState === "OUTSIDE" ? 0.8 : 0.15;
 
-                // 카메라 회전 계산 (360도 회전 적용)
+                // 카메라 회전 계산 (마우스 드래그 360도 회전 적용)
                 camera.rotation.order = "YXZ";
                 camera.rotation.y = yaw;
                 camera.rotation.x = pitch;
@@ -445,7 +487,7 @@ game_html = """
                     }
                 }
 
-                // 이동 중 랜덤 외계인 UFO 빨려 들어가는 트리거 체크
+                // 야외 이동 중 랜덤 외계인 UFO 빨려 들어가는 트리거 체크
                 if (gameState === "OUTSIDE" && !isAbducted) {
                     const distToTrigger = playerPos.distanceTo(new THREE.Vector3(abductionTriggerX, playerPos.y, abductionTriggerZ));
                     if (distToTrigger < 25) {
