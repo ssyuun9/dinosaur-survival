@@ -53,6 +53,10 @@ game_html = """
             width: 100%;
             height: 100%;
             display: block;
+            cursor: grab;
+        }
+        #game-canvas:active {
+            cursor: grabbing;
         }
         #ui-layer {
             position: absolute;
@@ -137,7 +141,7 @@ game_html = """
     </div>
 
     <div id="ui-layer">
-        <div id="instruction">스페이스바(Space)를 누르면 조종을 시작합니다.<br>(화면을 클릭하면 마우스 360도 회전 시점이 활성화됩니다)</div>
+        <div id="instruction">스페이스바(Space)를 누르면 조종을 시작합니다.<br>(마우스를 드래그하면 360도 시점이 회전합니다)</div>
         <div id="crosshair"></div>
         <div id="exit-btn-container" class="interactive">
             <button id="exit-btn">나가기</button>
@@ -152,6 +156,8 @@ game_html = """
         let gameState = "START"; // START, LIVING_ROOM_TOP, FIRST_PERSON, OUTSIDE, ABDUCTED
         let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
         let yaw = 0, pitch = 0;
+        let isMouseDown = false;
+        let previousMousePosition = { x: 0, y: 0 };
         let playerPos = new THREE.Vector3(0, 1.6, 0);
         let characterMesh;
         let isAbducted = false;
@@ -166,15 +172,6 @@ game_html = """
         const exitBtnContainer = document.getElementById('exit-btn-container');
         const exitBtn = document.getElementById('exit-btn');
         const crosshair = document.getElementById('crosshair');
-
-        function requestLock() {
-            if (gameState === "FIRST_PERSON" || gameState === "OUTSIDE") {
-                const element = document.body;
-                if (element.requestPointerLock) {
-                    element.requestPointerLock();
-                }
-            }
-        }
 
         function init() {
             scene = new THREE.Scene();
@@ -198,21 +195,42 @@ game_html = """
             camera.position.set(0, 10, 15);
             camera.lookAt(0, 0, 0);
 
-            // 이벤트 리스너
+            // 키보드 이벤트
             window.addEventListener('resize', onWindowResize);
             document.addEventListener('keydown', onKeyDown);
             document.addEventListener('keyup', onKeyUp);
-            document.addEventListener('mousemove', onMouseMove);
+
+            // 마우스 기반 360도 드래그 회전 이벤트 (Streamlit iframe 제약 해결)
+            window.addEventListener('mousedown', (e) => {
+                isMouseDown = true;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mouseup', () => {
+                isMouseDown = false;
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (gameState === "FIRST_PERSON" || gameState === "OUTSIDE") {
+                    // 마우스가 눌려있거나, 클릭 상태 관계없이 360도 조작 가능하도록 설정
+                    const deltaX = e.clientX - previousMousePosition.x;
+                    const deltaY = e.clientY - previousMousePosition.y;
+
+                    if (isMouseDown || true) { 
+                        const sensitivity = 0.004;
+                        yaw -= deltaX * sensitivity;
+                        pitch -= deltaY * sensitivity;
+
+                        // 위아래 제한 (-89도 ~ 89도)
+                        pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, pitch));
+                    }
+
+                    previousMousePosition = { x: e.clientX, y: e.clientY };
+                }
+            });
 
             startBtn.addEventListener('click', startGame);
             exitBtn.addEventListener('click', goOutside);
-
-            // 화면 클릭 시 마우스 포인터 고정 (360도 회전 활성화)
-            document.body.addEventListener('click', (e) => {
-                if (e.target.tagName !== 'BUTTON') {
-                    requestLock();
-                }
-            });
 
             animate();
         }
@@ -273,14 +291,12 @@ game_html = """
             if (characterMesh) scene.remove(characterMesh); // 1인칭이므로 몸체 숨김
 
             playerPos.set(0, 1.6, 0);
-            requestLock();
+            yaw = 0;
+            pitch = 0;
         }
 
         // 3. 집 밖으로 나가기 (도로 및 학교 로딩)
         function goOutside() {
-            if (document.exitPointerLock) {
-                document.exitPointerLock();
-            }
             exitBtnContainer.style.display = 'none';
             gameState = "OUTSIDE";
 
@@ -308,8 +324,6 @@ game_html = """
             // 외계인 납치 위치 지정 (도로 중간 꺾이는 구간 중 랜덤)
             abductionTriggerX = 200;
             abductionTriggerZ = -500;
-
-            requestLock();
         }
 
         // 도로, 건물, 학교 지형 생성
@@ -353,9 +367,6 @@ game_html = """
         function triggerAbduction() {
             isAbducted = true;
             gameState = "ABDUCTED";
-            if (document.exitPointerLock) {
-                document.exitPointerLock();
-            }
 
             // UFO 생성
             ufoGroup = new THREE.Group();
@@ -398,22 +409,6 @@ game_html = """
             if (e.code === 'KeyD') moveRight = false;
         }
 
-        // 마우스 이동을 통한 360도 및 위아래 시점 조작
-        function onMouseMove(e) {
-            if (document.pointerLockElement === document.body || document.pointerLockElement === canvas) {
-                const sensitivity = 0.002;
-                
-                const movementX = e.movementX || e.mozMovementX || e.webkitMovementX || 0;
-                const movementY = e.movementY || e.mozMovementY || e.webkitMovementY || 0;
-
-                yaw -= movementX * sensitivity;
-                pitch -= movementY * sensitivity;
-
-                // 위아래 시점 제한 (-89도 ~ 89도)
-                pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, pitch));
-            }
-        }
-
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
@@ -428,7 +423,7 @@ game_html = """
             if (gameState === "FIRST_PERSON" || gameState === "OUTSIDE") {
                 const speed = gameState === "OUTSIDE" ? 0.8 : 0.15;
 
-                // 카메라 회전 계산
+                // 카메라 회전 계산 (360도 회전 적용)
                 camera.rotation.order = "YXZ";
                 camera.rotation.y = yaw;
                 camera.rotation.x = pitch;
