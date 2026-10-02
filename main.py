@@ -77,7 +77,9 @@ game_html = """
             position: absolute;
             width: 100%;
             height: 100%;
-            background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.7));
+            /* 첨부해주신 공룡 배경 이미지 적용 */
+            background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.6)), 
+                        url('https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=2000&auto=format&fit=crop') no-repeat center center / cover;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -94,7 +96,7 @@ game_html = """
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
             transition: 0.2s;
         }
         #start-btn:hover, #exit-btn:hover {
@@ -136,7 +138,7 @@ game_html = """
 <body>
 
     <div id="start-screen" class="interactive">
-        <h1 style="font-size: 48px; margin-bottom: 20px;">공룡 생존 게임</h1>
+        <h1 style="font-size: 52px; margin-bottom: 20px; text-shadow: 2px 2px 8px rgba(0,0,0,0.8);">공룡 생존 게임</h1>
         <button id="start-btn">START</button>
     </div>
 
