@@ -73,6 +73,7 @@ game_html = """
         .interactive {
             pointer-events: auto;
         }
+        
         /* 공룡 생존 테마 SVG/CSS 그래픽 배경 */
         #start-screen {
             position: absolute;
@@ -124,7 +125,7 @@ game_html = """
             text-shadow: 1px 1px 3px #000;
         }
 
-        #start-btn, #exit-btn {
+        #start-btn, #exit-btn, #restart-btn {
             padding: 16px 48px;
             font-size: 24px;
             font-weight: 800;
@@ -137,7 +138,7 @@ game_html = """
             transition: all 0.25s ease;
             letter-spacing: 1px;
         }
-        #start-btn:hover, #exit-btn:hover {
+        #start-btn:hover, #exit-btn:hover, #restart-btn:hover {
             transform: translateY(-3px) scale(1.05);
             box-shadow: 0 10px 25px rgba(255, 75, 43, 0.8);
             background: linear-gradient(135deg, #ff4b2b, #ff416c);
@@ -185,6 +186,32 @@ game_html = """
             display: none;
             animation: blink 0.8s infinite alternate;
         }
+
+        /* 우주 진출 성공/엔딩 오버레이 UI */
+        #ending-screen {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 15, 0.85);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #00ffff;
+            z-index: 20;
+            backdrop-filter: blur(5px);
+        }
+        #ending-screen h2 {
+            font-size: 48px;
+            margin-bottom: 15px;
+            text-shadow: 0 0 20px #00ffff;
+        }
+        #ending-screen p {
+            font-size: 20px;
+            color: #ffffff;
+            margin-bottom: 30px;
+        }
+
         @keyframes blink {
             from { opacity: 0.2; }
             to { opacity: 1; }
@@ -217,6 +244,13 @@ game_html = """
         </div>
     </div>
 
+    <!-- 우주 이송 엔딩 화면 -->
+    <div id="ending-screen" class="interactive">
+        <h2>🛸 외계인에게 납치되었습니다!</h2>
+        <p>UFO에 실려 지구를 떠나 우주로 날아갔습니다...</p>
+        <button id="restart-btn">처음부터 다시하기</button>
+    </div>
+
     <div id="ui-layer">
         <div id="instruction">스페이스바(Space)를 누르면 조종을 시작합니다.<br>(마우스를 드래그하여 시점을 회전할 수 있습니다)</div>
         <div id="crosshair"></div>
@@ -238,15 +272,17 @@ game_html = """
         let playerPos = new THREE.Vector3(0, 1.6, 0);
         let characterMesh;
 
-        // 충돌체 Box 목록 (AABB 충돌 판정용)
         let colliders = [];
 
-        // 외계인 납치 관련 변수
+        // 외계인 납치 & 우주 이송 상태 변수
         let isAbducted = false;
         let abductionTime = 0;
         let ufoGroup, tractorBeam;
         let schoolZoneTrigger = false;
         let abductionTimer = null;
+        let ufoTargetHeight = 35; // UFO 설치 높이
+        let abductionPhase = "LIFTING"; // "LIFTING", "BOARDED", "FLYING_TO_SPACE"
+        let flySpeed = 0.5;
 
         const canvas = document.getElementById('game-canvas');
         const startBtn = document.getElementById('start-btn');
@@ -256,20 +292,20 @@ game_html = """
         const exitBtn = document.getElementById('exit-btn');
         const crosshair = document.getElementById('crosshair');
         const warningMsg = document.getElementById('warning-msg');
+        const endingScreen = document.getElementById('ending-screen');
+        const restartBtn = document.getElementById('restart-btn');
 
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x111111);
 
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 3000);
             
             renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-            // 조명
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
             scene.add(ambientLight);
 
             const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
@@ -307,13 +343,14 @@ game_html = """
 
             startBtn.addEventListener('click', startGame);
             exitBtn.addEventListener('click', goOutside);
+            restartBtn.addEventListener('click', restartGame);
 
             animate();
         }
 
-        // 1. 거실 화면 시작
         function startGame() {
             startScreen.style.display = 'none';
+            endingScreen.style.display = 'none';
             gameState = "LIVING_ROOM_TOP";
             instruction.style.display = 'block';
 
@@ -323,41 +360,44 @@ game_html = """
             camera.lookAt(0, 0, 0);
         }
 
-        // 구체적이고 디테일한 집(거실) 내부 생성
+        function restartGame() {
+            if (abductionTimer) clearTimeout(abductionTimer);
+            isAbducted = false;
+            schoolZoneTrigger = false;
+            abductionPhase = "LIFTING";
+            abductionTime = 0;
+            flySpeed = 0.5;
+
+            endingScreen.style.display = 'none';
+            startScreen.style.display = 'flex';
+            crosshair.style.display = 'none';
+            warningMsg.style.display = 'none';
+
+            while(scene.children.length > 0){ 
+                scene.remove(scene.children[0]); 
+            }
+            gameState = "START";
+        }
+
         function createDetailedLivingRoom() {
-            colliders = []; // 초기화
+            colliders = [];
 
             scene.background = new THREE.Color(0x1e1e1e);
 
-            // 마루 바닥
-            const floorGeo = new THREE.PlaneGeometry(12, 12);
-            const floorMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.4 });
-            const floor = new THREE.Mesh(floorGeo, floorMat);
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.4 }));
             floor.rotation.x = -Math.PI / 2;
-            floor.receiveShadow = true;
             scene.add(floor);
 
-            // 카펫
             const rug = new THREE.Mesh(new THREE.PlaneGeometry(6, 4), new THREE.MeshStandardMaterial({ color: 0x3a5a40, roughness: 0.9 }));
             rug.rotation.x = -Math.PI / 2;
             rug.position.set(0, 0.01, 0);
             scene.add(rug);
 
-            // 벽면
             const wallMat = new THREE.MeshStandardMaterial({ color: 0xede0d4 });
             const backWall = new THREE.Mesh(new THREE.BoxGeometry(12, 4, 0.2), wallMat);
             backWall.position.set(0, 2, -6);
             scene.add(backWall);
 
-            const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.2, 4, 12), wallMat);
-            leftWall.position.set(-6, 2, 0);
-            scene.add(leftWall);
-
-            const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.2, 4, 12), wallMat);
-            rightWall.position.set(6, 2, 0);
-            scene.add(rightWall);
-
-            // 소파
             const sofaGroup = new THREE.Group();
             const sofaBase = new THREE.Mesh(new THREE.BoxGeometry(4, 0.6, 1.8), new THREE.MeshStandardMaterial({ color: 0x2b2d42 }));
             sofaBase.position.set(0, 0.3, 0);
@@ -367,26 +407,14 @@ game_html = """
             sofaGroup.position.set(-3.5, 0, -3);
             scene.add(sofaGroup);
 
-            // TV 및 TV 장식장
             const tvStand = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.8, 1), new THREE.MeshStandardMaterial({ color: 0x4a3b32 }));
             tvStand.position.set(-3.5, 0.4, 3.5);
             scene.add(tvStand);
 
-            const tvScreen = new THREE.Mesh(new THREE.BoxGeometry(3, 1.8, 0.1), new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.1 }));
+            const tvScreen = new THREE.Mesh(new THREE.BoxGeometry(3, 1.8, 0.1), new THREE.MeshStandardMaterial({ color: 0x050505 }));
             tvScreen.position.set(-3.5, 1.8, 3.5);
             scene.add(tvScreen);
 
-            // 거실 테이블
-            const table = new THREE.Mesh(new THREE.BoxGeometry(2, 0.5, 1.2), new THREE.MeshStandardMaterial({ color: 0xddb892 }));
-            table.position.set(0, 0.25, -0.5);
-            scene.add(table);
-
-            // 액자
-            const frame = new THREE.Mesh(new THREE.BoxGeometry(2, 1.2, 0.05), new THREE.MeshStandardMaterial({ color: 0xb08968 }));
-            frame.position.set(0, 2.5, -5.88);
-            scene.add(frame);
-
-            // 디테일 현관문
             const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.2, 0.2), new THREE.MeshStandardMaterial({ color: 0x333333 }));
             doorFrame.position.set(0, 1.6, 5.9);
             scene.add(doorFrame);
@@ -395,11 +423,6 @@ game_html = """
             door.position.set(0, 1.5, 5.85);
             scene.add(door);
 
-            const handle = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 16), new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.8 }));
-            handle.position.set(0.7, 1.5, 5.75);
-            scene.add(handle);
-
-            // 사람 캐릭터 (3인칭 표시용)
             const charGroup = new THREE.Group();
             const body = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1.2), new THREE.MeshStandardMaterial({ color: 0x3a86ff }));
             body.position.y = 0.6;
@@ -411,7 +434,6 @@ game_html = """
             scene.add(characterMesh);
         }
 
-        // 1인칭 시점 전환
         function switchToFirstPerson() {
             gameState = "FIRST_PERSON";
             instruction.style.display = 'none';
@@ -423,7 +445,6 @@ game_html = """
             pitch = 0;
         }
 
-        // 2. 야외 도심 및 한국 학교 환경
         function goOutside() {
             exitBtnContainer.style.display = 'none';
             gameState = "OUTSIDE";
@@ -439,12 +460,9 @@ game_html = """
             
             const sun = new THREE.DirectionalLight(0xfffaed, 1.1);
             sun.position.set(150, 250, 100);
-            sun.castShadow = true;
-            sun.shadow.mapSize.width = 2048;
-            sun.shadow.mapSize.height = 2048;
             scene.add(sun);
 
-            colliders = []; // 충돌 박스 초기화
+            colliders = [];
 
             createRealisticCityAndSchool();
 
@@ -453,7 +471,6 @@ game_html = """
             pitch = 0;
         }
 
-        // 충돌체 등록 헬퍼 함수
         function addCollider(x, z, width, depth) {
             colliders.push({
                 minX: x - width / 2 - 0.5,
@@ -463,151 +480,67 @@ game_html = """
             });
         }
 
-        // 사실적인 도심 건물 및 한국 학교 세팅
         function createRealisticCityAndSchool() {
-            // 아스팔트 도로 & 잔디
             const ground = new THREE.Mesh(new THREE.PlaneGeometry(2500, 2500), new THREE.MeshStandardMaterial({ color: 0x385e38, roughness: 0.9 }));
             ground.rotation.x = -Math.PI / 2;
-            ground.receiveShadow = true;
             scene.add(ground);
 
-            // 도로망
             const roadMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
-            
             const mainRoad = new THREE.Mesh(new THREE.BoxGeometry(24, 0.1, 800), roadMat);
             mainRoad.position.set(0, 0.05, -350);
             scene.add(mainRoad);
 
-            const crossRoad = new THREE.Mesh(new THREE.BoxGeometry(400, 0.1, 24), roadMat);
-            crossRoad.position.set(100, 0.05, -300);
-            scene.add(crossRoad);
-
-            // 건물 배치 (사실감 넘치는 창문 및 입체감)
-            const bldgColors = [0xcfd8dc, 0x90a4ae, 0xb0bec5, 0x78909c, 0xd7ccc8, 0xa1887f];
-            
+            const bldgColors = [0xcfd8dc, 0x90a4ae, 0xb0bec5, 0x78909c, 0xd7ccc8];
             for(let z = -40; z > -650; z -= 55) {
-                if (Math.abs(z - (-300)) < 40) continue; // 교차로 비우기
-
-                // 좌측 건물군
+                if (Math.abs(z - (-300)) < 40) continue;
                 let h1 = 20 + Math.random() * 35;
                 createBuilding(-30, h1, z, 26, 26, bldgColors[Math.floor(Math.random()*bldgColors.length)]);
-                
-                // 우측 건물군
                 let h2 = 20 + Math.random() * 35;
                 createBuilding(30, h2, z, 26, 26, bldgColors[Math.floor(Math.random()*bldgColors.length)]);
             }
 
-            // --------------------------------------------------
-            // 한국식 학교 영역 생성 (Z: -680 ~ -880, X: -100 ~ 100)
-            // --------------------------------------------------
+            // 한국식 학교
             const schoolCenterX = 0;
             const schoolCenterZ = -780;
 
-            // 1) 흙 운동장
-            const playground = new THREE.Mesh(new THREE.PlaneGeometry(180, 130), new THREE.MeshStandardMaterial({ color: 0xc2a649, roughness: 0.9 }));
+            const playground = new THREE.Mesh(new THREE.PlaneGeometry(180, 130), new THREE.MeshStandardMaterial({ color: 0xc2a649 }));
             playground.rotation.x = -Math.PI / 2;
             playground.position.set(schoolCenterX, 0.06, schoolCenterZ + 10);
             scene.add(playground);
 
-            // 축구대 (운동장 요소)
-            const goalMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-            const goal = new THREE.Mesh(new THREE.BoxGeometry(10, 3, 0.2), goalMat);
-            goal.position.set(schoolCenterX, 1.5, schoolCenterZ + 60);
-            scene.add(goal);
-
-            // 2) 한국 학교 본관 건물
-            const schoolBuilding = new THREE.Mesh(
-                new THREE.BoxGeometry(140, 22, 30), 
-                new THREE.MeshStandardMaterial({ color: 0x8d5b4c, roughness: 0.7 })
-            );
+            const schoolBuilding = new THREE.Mesh(new THREE.BoxGeometry(140, 22, 30), new THREE.MeshStandardMaterial({ color: 0x8d5b4c }));
             schoolBuilding.position.set(schoolCenterX, 11, schoolCenterZ - 60);
-            schoolBuilding.castShadow = true;
             scene.add(schoolBuilding);
             addCollider(schoolCenterX, schoolCenterZ - 60, 140, 30);
 
-            // 학교 창문 레이어
-            for(let rx = -60; rx <= 60; rx += 15) {
-                for(let ry = 4; ry <= 18; ry += 5) {
-                    const win = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 2.5), new THREE.MeshStandardMaterial({ color: 0x87ceeb, metalness: 0.5 }));
-                    win.position.set(schoolCenterX + rx, ry, schoolCenterZ - 44.9);
-                    scene.add(win);
-                }
-            }
-
-            // 3) 학교 둘레 담장 (붉은 벽돌 + 철제 펜스)
-            const wallHeight = 2.5;
             const wallMat = new THREE.MeshStandardMaterial({ color: 0x6e3b2e });
-
-            // 뒷담장
             createFenceSegment(schoolCenterX, schoolCenterZ - 80, 200, 0.8, wallMat);
-            // 좌측 담장
             createFenceSegment(schoolCenterX - 100, schoolCenterZ, 0.8, 160, wallMat);
-            // 우측 담장
             createFenceSegment(schoolCenterX + 100, schoolCenterZ, 0.8, 160, wallMat);
-            
-            // 정면 담장 (교문 자리 비움: X: -20 ~ 20 보류)
             createFenceSegment(schoolCenterX - 60, schoolCenterZ + 80, 80, 0.8, wallMat);
             createFenceSegment(schoolCenterX + 60, schoolCenterZ + 80, 80, 0.8, wallMat);
-
-            // 4) 교문 (정문 문주 및 철제 게이트)
-            const gatePillarMat = new THREE.MeshStandardMaterial({ color: 0x444444 });
-            const gate1 = new THREE.Mesh(new THREE.BoxGeometry(2.5, 4, 2.5), gatePillarMat);
-            gate1.position.set(schoolCenterX - 18, 2, schoolCenterZ + 80);
-            scene.add(gate1);
-            addCollider(schoolCenterX - 18, schoolCenterZ + 80, 2.5, 2.5);
-
-            const gate2 = new THREE.Mesh(new THREE.BoxGeometry(2.5, 4, 2.5), gatePillarMat);
-            gate2.position.set(schoolCenterX + 18, 2, schoolCenterZ + 80);
-            scene.add(gate2);
-            addCollider(schoolCenterX + 18, schoolCenterZ + 80, 2.5, 2.5);
-
-            // 교문 현판
-            const nameplate = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.8, 0.1), new THREE.MeshStandardMaterial({ color: 0xd4af37 }));
-            nameplate.position.set(schoolCenterX - 18, 2.8, schoolCenterZ + 78.7);
-            scene.add(nameplate);
         }
 
-        // 사실적인 건물 생성 함수 (충돌 박스 포함)
         function createBuilding(x, height, z, width, depth, colorHex) {
-            const bldgGeo = new THREE.BoxGeometry(width, height, depth);
-            const bldgMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.5 });
-            const building = new THREE.Mesh(bldgGeo, bldgMat);
+            const building = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), new THREE.MeshStandardMaterial({ color: colorHex }));
             building.position.set(x, height / 2, z);
-            building.castShadow = true;
-            building.receiveShadow = true;
             scene.add(building);
-
-            // 옥상 구조물
-            const roofGeo = new THREE.BoxGeometry(width * 0.4, 3, depth * 0.4);
-            const roofMesh = new THREE.Mesh(roofGeo, new THREE.MeshStandardMaterial({ color: 0x333333 }));
-            roofMesh.position.set(x, height + 1.5, z);
-            scene.add(roofMesh);
-
-            // 충돌체에 추가
             addCollider(x, z, width, depth);
         }
 
-        // 담장 및 충돌체 생성 함수
         function createFenceSegment(x, z, width, depth, material) {
             const wall = new THREE.Mesh(new THREE.BoxGeometry(width, 2.5, depth), material);
             wall.position.set(x, 1.25, z);
-            wall.castShadow = true;
             scene.add(wall);
-
             addCollider(x, z, width, depth);
         }
 
-        // 학교 영역 내 랜덤 외계인 납치 트리가
         function checkSchoolZoneAndTriggerAbduction() {
-            // 학교 내부 영역 범위 (X: -95 ~ 95, Z: -850 ~ -700)
             const inSchool = (playerPos.x > -95 && playerPos.x < 95 && playerPos.z > -850 && playerPos.z < -700);
 
             if (inSchool && !schoolZoneTrigger && !isAbducted) {
-                schoolZoneTrigger = true; // 감지 시작
-
-                // 3초 ~ 9초 사이 랜덤 지연 후 납치 발생!
-                const randomDelay = Math.random() * 6000 + 3000;
-
+                schoolZoneTrigger = true;
+                const randomDelay = Math.random() * 5000 + 3000;
                 warningMsg.style.display = 'block';
 
                 abductionTimer = setTimeout(() => {
@@ -618,17 +551,16 @@ game_html = """
             }
         }
 
-        // 외계인 납치 실행 연출
         function triggerAbduction() {
             isAbducted = true;
             gameState = "ABDUCTED";
+            abductionPhase = "LIFTING";
             warningMsg.style.display = 'none';
 
-            // UFO 생성
             ufoGroup = new THREE.Group();
             const ufoBody = new THREE.Mesh(
-                new THREE.CylinderGeometry(12, 20, 4, 32),
-                new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.9, roughness: 0.1 })
+                new THREE.CylinderGeometry(12, 22, 4, 32),
+                new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.9, roughness: 0.1 })
             );
             const ufoDome = new THREE.Mesh(
                 new THREE.SphereGeometry(8, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2),
@@ -636,21 +568,19 @@ game_html = """
             );
             ufoDome.position.y = 2;
             ufoGroup.add(ufoBody, ufoDome);
-            ufoGroup.position.set(playerPos.x, playerPos.y + 35, playerPos.z);
+
+            ufoGroup.position.set(playerPos.x, playerPos.y + ufoTargetHeight, playerPos.z);
             scene.add(ufoGroup);
 
-            // 초록색 수송 광선 (Tractor Beam)
-            const beamGeo = new THREE.CylinderGeometry(6, 14, 40, 32, 1, true);
+            const beamGeo = new THREE.CylinderGeometry(6, 14, ufoTargetHeight, 32, 1, true);
             const beamMat = new THREE.MeshBasicMaterial({ color: 0x00ff66, transparent: true, opacity: 0.45, side: THREE.DoubleSide });
             tractorBeam = new THREE.Mesh(beamGeo, beamMat);
-            tractorBeam.position.set(playerPos.x, playerPos.y + 20, playerPos.z);
+            tractorBeam.position.set(playerPos.x, playerPos.y + ufoTargetHeight / 2, playerPos.z);
             scene.add(tractorBeam);
         }
 
         function onKeyDown(e) {
-            if (e.code === 'Space' && gameState === "LIVING_ROOM_TOP") {
-                switchToFirstPerson();
-            }
+            if (e.code === 'Space' && gameState === "LIVING_ROOM_TOP") switchToFirstPerson();
             if (e.code === 'KeyW') moveForward = true;
             if (e.code === 'KeyS') moveBackward = true;
             if (e.code === 'KeyA') moveLeft = true;
@@ -670,18 +600,16 @@ game_html = """
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // 충돌 검사 알고리즘 (AABB)
         function checkCollisions(newPos) {
             for (let i = 0; i < colliders.length; i++) {
                 let c = colliders[i];
                 if (newPos.x > c.minX && newPos.x < c.maxX && newPos.z > c.minZ && newPos.z < c.maxZ) {
-                    return true; // 충돌 발생
+                    return true;
                 }
             }
             return false;
         }
 
-        // 메인 프레임 루프
         function animate() {
             requestAnimationFrame(animate);
 
@@ -696,39 +624,23 @@ game_html = """
                 const side = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
 
                 let nextPos = playerPos.clone();
-
                 if (moveForward) nextPos.addScaledVector(forward, speed);
                 if (moveBackward) nextPos.addScaledVector(forward, -speed);
                 if (moveLeft) nextPos.addScaledVector(side, -speed);
                 if (moveRight) nextPos.addScaledVector(side, speed);
 
-                // 야외 이동 시 건물 및 담장 충돌 체크
                 if (gameState === "OUTSIDE") {
                     if (!checkCollisions(nextPos)) {
                         playerPos.copy(nextPos);
-                    } else {
-                        // X축 및 Z축 각각 이동 테스트 (벽 밀림 완화)
-                        let testX = playerPos.clone();
-                        testX.x = nextPos.x;
-                        if (!checkCollisions(testX)) playerPos.x = nextPos.x;
-
-                        let testZ = playerPos.clone();
-                        testZ.z = nextPos.z;
-                        if (!checkCollisions(testZ)) playerPos.z = nextPos.z;
                     }
-
-                    // 학교 영역 접근 시 랜덤 외계인 이벤트 체크
                     checkSchoolZoneAndTriggerAbduction();
-
                 } else {
-                    // 집 내부 이동 제한
                     playerPos.x = Math.max(-5.5, Math.min(5.5, nextPos.x));
                     playerPos.z = Math.max(-5.5, Math.min(5.5, nextPos.z));
                 }
 
                 camera.position.copy(playerPos);
 
-                // 집 문 근처 시 나가기 버튼 표출
                 if (gameState === "FIRST_PERSON") {
                     if (playerPos.z > 4.2 && Math.abs(playerPos.x) < 1.8) {
                         exitBtnContainer.style.display = 'block';
@@ -738,14 +650,54 @@ game_html = """
                 }
             }
 
-            // UFO 납치 연출
+            // 외계인 납치 단계별 우주 발사 연출
             if (gameState === "ABDUCTED") {
-                abductionTime += 0.04;
-                playerPos.y += 0.18; // 플레이어가 공중으로 떠오름
-                camera.position.copy(playerPos);
-                
-                if (ufoGroup) ufoGroup.rotation.y += 0.08;
-                camera.position.x += Math.sin(abductionTime * 12) * 0.08;
+                abductionTime += 0.03;
+
+                // 1단계: 플레이어가 UFO 높이까지 수직 조용히 끌려올라감
+                if (abductionPhase === "LIFTING") {
+                    playerPos.y += 0.25;
+                    camera.position.copy(playerPos);
+
+                    if (ufoGroup) ufoGroup.rotation.y += 0.08;
+
+                    // UFO 바닥 높이에 도착하면 탑승 완료!
+                    if (playerPos.y >= ufoGroup.position.y - 1.5) {
+                        abductionPhase = "BOARDED";
+                        if (tractorBeam) scene.remove(tractorBeam); // 광선 끄기
+                        crosshair.style.display = 'none';
+                    }
+                }
+
+                // 2단계: UFO 탑승 후 잠시 후 우주로 순간 가속 발사!
+                if (abductionPhase === "BOARDED") {
+                    // 카메라 시점을 UFO 외부 시점으로 전환하여 날아가는 장면 연출
+                    camera.position.set(ufoGroup.position.x, ufoGroup.position.y + 5, ufoGroup.position.z + 30);
+                    camera.lookAt(ufoGroup.position);
+
+                    abductionPhase = "FLYING_TO_SPACE";
+                }
+
+                // 3단계: UFO 우주로 급상승 (지구가 멀어짐)
+                if (abductionPhase === "FLYING_TO_SPACE") {
+                    flySpeed *= 1.05; // 가속도
+                    ufoGroup.position.y += flySpeed;
+                    ufoGroup.rotation.y += 0.15;
+
+                    // 카메라가 UFO를 따라 같이 우주로 상공을 바라보며 추적
+                    camera.position.y = ufoGroup.position.y - 10;
+                    camera.position.z = ufoGroup.position.z + 40;
+                    camera.lookAt(ufoGroup.position);
+
+                    // 하늘 배경을 점차 캄캄한 우주(검정색)로 변경
+                    scene.background.lerp(new THREE.Color(0x000005), 0.02);
+
+                    // 약 400m 이상 우주 상공으로 날아가면 엔딩창 표출
+                    if (ufoGroup.position.y > 450) {
+                        gameState = "ENDED";
+                        endingScreen.style.display = 'flex';
+                    }
+                }
             }
 
             renderer.render(scene, camera);
