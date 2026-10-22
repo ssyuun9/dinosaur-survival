@@ -1,14 +1,14 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# Streamlit 기본 설정
+# Streamlit 기본 설정 (전체 화면 꽉 차게)
 st.set_page_config(
     page_title="Dino Survival Era Game",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# 화면 전체 꽉 차게 여백 제거
+# 화면 전체 꽉 차게 여백 제거 스타일 설정
 st.markdown("""
     <style>
         #root > div:nth-child(1) > div > div > div {
@@ -230,7 +230,7 @@ game_html = """<!DOCTYPE html>
 
     <!-- UI 레이어 -->
     <div id="ui-layer">
-        <div id="instruction">스페이스바(Space)를 누르면 조종을 시작합니다.<br>(마우스를 클릭 드래그하여 360도 시점을 움직이세요)</div>
+        <div id="instruction">스페이스바(Space)를 누르면 조종을 시작합니다.<br>(W,A,S,D키로 이동하고 마우스 클릭 드래그로 시점을 조절하세요)</div>
         <div id="exit-btn-container" class="interactive">
             <button id="exit-btn" class="btn-style">🚪 문 열고 나가기</button>
         </div>
@@ -251,7 +251,7 @@ game_html = """<!DOCTYPE html>
         // AABB 충돌체 배열
         let colliders = [];
 
-        // UFO & 외계인 연출
+        // UFO 연출
         let ufoGroup;
 
         // 공룡 데이터베이스
@@ -299,8 +299,10 @@ game_html = """<!DOCTYPE html>
             camera.lookAt(0, 0, 0);
 
             window.addEventListener('resize', onWindowResize);
-            document.addEventListener('keydown', onKeyDown);
-            document.addEventListener('keyup', onKeyUp);
+            
+            // 키보드 이벤트 (W, A, S, D 소문자, 대문자, 한글 상태 완벽 지원)
+            window.addEventListener('keydown', onKeyDown);
+            window.addEventListener('keyup', onKeyUp);
 
             window.addEventListener('mousedown', (e) => {
                 isMouseDown = true;
@@ -703,19 +705,30 @@ game_html = """<!DOCTYPE html>
             });
         }
 
+        // 키보드 누름 처리 (대소문자/한글 완벽 인지)
         function onKeyDown(e) {
-            if (e.code === 'Space' && gameState === "LIVING_ROOM_TOP") switchToFirstPerson();
-            if (e.code === 'KeyW') moveForward = true;
-            if (e.code === 'KeyS') moveBackward = true;
-            if (e.code === 'KeyA') moveLeft = true;
-            if (e.code === 'KeyD') moveRight = true;
+            const key = e.key.toLowerCase();
+            const code = e.code;
+
+            if ((code === 'Space' || e.key === ' ') && gameState === "LIVING_ROOM_TOP") {
+                switchToFirstPerson();
+            }
+
+            if (code === 'KeyW' || key === 'w' || key === 'ㅈ') moveForward = true;
+            if (code === 'KeyS' || key === 's' || key === 'ㄴ') moveBackward = true;
+            if (code === 'KeyA' || key === 'a' || key === 'ㅁ') moveLeft = true;
+            if (code === 'KeyD' || key === 'd' || key === 'ㅇ') moveRight = true;
         }
 
+        // 키보드 뗌 처리
         function onKeyUp(e) {
-            if (e.code === 'KeyW') moveForward = false;
-            if (e.code === 'KeyS') moveBackward = false;
-            if (e.code === 'KeyA') moveLeft = false;
-            if (e.code === 'KeyD') moveRight = false;
+            const key = e.key.toLowerCase();
+            const code = e.code;
+
+            if (code === 'KeyW' || key === 'w' || key === 'ㅈ') moveForward = false;
+            if (code === 'KeyS' || key === 's' || key === 'ㄴ') moveBackward = false;
+            if (code === 'KeyA' || key === 'a' || key === 'ㅁ') moveLeft = false;
+            if (code === 'KeyD' || key === 'd' || key === 'ㅇ') moveRight = false;
         }
 
         function onWindowResize() {
