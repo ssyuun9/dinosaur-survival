@@ -1,14 +1,14 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# Streamlit 기본 설정 (전체 화면 꽉 차게)
+# Streamlit 기본 설정
 st.set_page_config(
     page_title="Dino Survival Era Game",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# 화면 전체 꽉 차게 여백 제거 스타일 설정
+# 화면 전체 꽉 차게 여백 제거
 st.markdown("""
     <style>
         #root > div:nth-child(1) > div > div > div {
@@ -31,8 +31,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 3D 엔진(Three.js) 기반 전체 HTML/JS 통합 코드
-game_html = """
-<!DOCTYPE html>
+game_html = """<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -258,7 +257,7 @@ game_html = """
         // 공룡 데이터베이스
         const dinoDB = {
             triassic: [
-                { name: "코엘로피시스", diet: "육식", size: "3m / 20kg", feat: "날렵하고 미민한 날카로운 톱니 이빨을 가진 초기 공룡", food: "작은 파충류, 곤충", atk: 60, def: 40, hp: 70 },
+                { name: "코엘로피시스", diet: "육식", size: "3m / 20kg", feat: "날렵하고 민첩한 날카로운 톱니 이빨을 가진 초기 공룡", food: "작은 파충류, 곤충", atk: 60, def: 40, hp: 70 },
                 { name: "플라테오사우루스", diet: "초식", size: "8m / 4톤", feat: "긴 목과 튼튼한 뒷다리를 가진 초기 대형 공룡", food: "높은 나무의 잎사귀", atk: 45, def: 65, hp: 85 }
             ],
             jurassic: [
@@ -332,7 +331,6 @@ game_html = """
             animate();
         }
 
-        // 충돌체 추가 헬퍼 함수
         function addCollider(x, z, width, depth) {
             colliders.push({
                 minX: x - width / 2 - 0.4,
@@ -350,7 +348,6 @@ game_html = """
             }, 1200);
         }
 
-        // 1. 디테일한 가구와 구체적 구조의 집 내부
         function startHouseGame() {
             document.getElementById('start-screen').style.display = 'none';
             gameState = "LIVING_ROOM_TOP";
@@ -366,14 +363,12 @@ game_html = """
             colliders = [];
             scene.background = new THREE.Color(0x1a1a1a);
 
-            // 우드 바닥
             const floorMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.4 });
             const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), floorMat);
             floor.rotation.x = -Math.PI / 2;
             floor.receiveShadow = true;
             scene.add(floor);
 
-            // 벽체 생성
             const wallMat = new THREE.MeshStandardMaterial({ color: 0xede0d4 });
             function addWall(x, z, w, d) {
                 const wall = new THREE.Mesh(new THREE.BoxGeometry(w, 4, d), wallMat);
@@ -384,20 +379,16 @@ game_html = """
                 addCollider(x, z, w, d);
             }
 
-            // 집 외벽
             addWall(0, -10, 20, 0.4);
             addWall(-10, 0, 0.4, 20);
             addWall(10, 0, 0.4, 20);
-            addWall(-5, 10, 10, 0.4); // 현관 통로 옆
+            addWall(-5, 10, 10, 0.4);
             addWall(5, 10, 10, 0.4);
 
-            // 내벽 구획 (거실, 부엌, 화장실, 방2개, 베란다)
-            addWall(-3, -2, 14, 0.3); // 안방/화장실 구분벽
-            addWall(4, -3, 0.3, 12);  // 부엌 구분벽
-            addWall(-5, 4, 10, 0.3);  // 베란다 구분벽
+            addWall(-3, -2, 14, 0.3);
+            addWall(4, -3, 0.3, 12);
+            addWall(-5, 4, 10, 0.3);
 
-            // --- 디테일 가구 추가 ---
-            // 1) 거실: 카페트, 3인용 소파, TV, TV 장식장, 거실 테이블, 액자
             const rug = new THREE.Mesh(new THREE.PlaneGeometry(6, 4), new THREE.MeshStandardMaterial({ color: 0x3a5a40 }));
             rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.01, 1); scene.add(rug);
 
@@ -412,25 +403,20 @@ game_html = """
             const tvScreen = new THREE.Mesh(new THREE.BoxGeometry(3, 1.8, 0.1), new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.1 }));
             tvScreen.position.set(0, 1.8, 3.5); scene.add(tvScreen);
 
-            // 2) 부엌: 식탁, 의자
             const diningTable = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.9, 1.5), new THREE.MeshStandardMaterial({ color: 0xddb892 }));
             diningTable.position.set(7, 0.45, -6); scene.add(diningTable);
             addCollider(7, -6, 2.5, 1.5);
 
-            // 3) 안방: 침대, 협탁
             const bed = new THREE.Mesh(new THREE.BoxGeometry(3, 1, 4), new THREE.MeshStandardMaterial({ color: 0xf4a261 }));
             bed.position.set(-7, 0.5, -7); scene.add(bed);
             addCollider(-7, -7, 3, 4);
 
-            // 4) 화장실: 변기, 세면대
             const toilet = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1, 1), new THREE.MeshStandardMaterial({ color: 0xffffff }));
             toilet.position.set(-8, 0.5, 1); scene.add(toilet);
             addCollider(-8, 1, 0.8, 1);
 
-            // 손잡이가 있는 현관문
             createDoorWithHandle(0, 9.8);
 
-            // 3인칭 캐틱터
             const charGroup = new THREE.Group();
             const body = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1.2), new THREE.MeshStandardMaterial({ color: 0x3a86ff }));
             body.position.y = 0.6;
@@ -463,7 +449,6 @@ game_html = """
             yaw = 0; pitch = 0;
         }
 
-        // 2. 야외 도심 마을 및 사실적인 건물
         function goOutside() {
             document.getElementById('exit-btn-container').style.display = 'none';
             gameState = "OUTSIDE";
@@ -480,13 +465,11 @@ game_html = """
         }
 
         function createTownCityAndSchool() {
-            // 대지
             const ground = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), new THREE.MeshStandardMaterial({ color: 0x2e8b57, roughness: 0.9 }));
             ground.rotation.x = -Math.PI / 2;
             ground.receiveShadow = true;
             scene.add(ground);
 
-            // 도로망 (우회전 1번, 좌회전 1번)
             const roadMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
             const r1 = new THREE.Mesh(new THREE.BoxGeometry(20, 0.1, 300), roadMat);
             r1.position.set(0, 0.05, -150); scene.add(r1);
@@ -497,16 +480,13 @@ game_html = """
             const r3 = new THREE.Mesh(new THREE.BoxGeometry(20, 0.1, 500), roadMat);
             r3.position.set(230, 0.05, -550); scene.add(r3);
 
-            // 사실적인 색상의 밝은 건물들 (베이지, 회색, 블루 톤)
             const bldgColors = [0xcfd8dc, 0x90a4ae, 0xb0bec5, 0x78909c, 0xd7ccc8, 0xa1887f];
 
-            // 1) 마을 작은 주택들
             for(let z = -30; z > -250; z -= 40) {
                 createBuilding(-25, 12, z, 18, 18, 0xd7ccc8);
                 createBuilding(25, 14, z, 18, 18, 0xb0bec5);
             }
 
-            // 2) 도로 주변의 사실적인 도심 빌딩들
             for(let x = 10; x < 210; x += 40) {
                 createBuilding(x, 25 + Math.random()*25, -270, 24, 24, bldgColors[Math.floor(Math.random()*bldgColors.length)]);
                 createBuilding(x, 25 + Math.random()*25, -330, 24, 24, bldgColors[Math.floor(Math.random()*bldgColors.length)]);
@@ -517,26 +497,20 @@ game_html = """
                 createBuilding(260, 30 + Math.random()*30, z, 26, 26, bldgColors[Math.floor(Math.random()*bldgColors.length)]);
             }
 
-            // --------------------------------------------------
-            // 한국식 학교 (운동장, 놀이터, 본관 건물)
-            // --------------------------------------------------
             const scX = 230, scZ = -780;
 
             const playground = new THREE.Mesh(new THREE.PlaneGeometry(180, 140), new THREE.MeshStandardMaterial({ color: 0xc2a649, roughness: 0.9 }));
             playground.rotation.x = -Math.PI / 2;
             playground.position.set(scX, 0.06, scZ + 10); scene.add(playground);
 
-            // 놀이터 (미끄럼틀 & 그네)
             createPlaygroundEquipment(scX - 60, scZ + 40);
 
-            // 학교 본관 건물
             const schoolBuilding = new THREE.Mesh(new THREE.BoxGeometry(140, 22, 30), new THREE.MeshStandardMaterial({ color: 0x8d5b4c, roughness: 0.7 }));
             schoolBuilding.position.set(scX, 11, scZ - 60);
             schoolBuilding.castShadow = true;
             scene.add(schoolBuilding);
             addCollider(scX, scZ - 60, 140, 30);
 
-            // 학교 창문
             for(let rx = -60; rx <= 60; rx += 15) {
                 for(let ry = 4; ry <= 18; ry += 5) {
                     const win = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 2.5), new THREE.MeshStandardMaterial({ color: 0x87ceeb, metalness: 0.5 }));
@@ -545,7 +519,6 @@ game_html = """
                 }
             }
 
-            // 학교 담장
             const wallMat = new THREE.MeshStandardMaterial({ color: 0x6e3b2e });
             createFenceSegment(scX, scZ - 80, 200, 0.8, wallMat);
             createFenceSegment(scX - 100, scZ, 0.8, 160, wallMat);
@@ -554,7 +527,6 @@ game_html = """
             createFenceSegment(scX + 60, scZ + 80, 80, 0.8, wallMat);
         }
 
-        // 사실적 건물 생성 (창문, 옥상 구조물 및 충돌체 적용)
         function createBuilding(x, height, z, width, depth, colorHex) {
             const building = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.5 }));
             building.position.set(x, height / 2, z);
@@ -562,7 +534,6 @@ game_html = """
             building.receiveShadow = true;
             scene.add(building);
 
-            // 옥상 물탱크 구조물
             const roofMesh = new THREE.Mesh(new THREE.BoxGeometry(width * 0.4, 3, depth * 0.4), new THREE.MeshStandardMaterial({ color: 0x333333 }));
             roofMesh.position.set(x, height + 1.5, z);
             scene.add(roofMesh);
@@ -578,4 +549,250 @@ game_html = """
         }
 
         function createPlaygroundEquipment(x, z) {
-            const pg
+            const pgGroup = new THREE.Group();
+            const slideMain = new THREE.Mesh(new THREE.BoxGeometry(3, 4, 10), new THREE.MeshStandardMaterial({ color: 0xef4444 }));
+            slideMain.rotation.x = 0.3; slideMain.position.set(0, 2, 0);
+            pgGroup.add(slideMain);
+
+            const swingFrame = new THREE.Mesh(new THREE.BoxGeometry(8, 5, 0.5), new THREE.MeshStandardMaterial({ color: 0xeab308 }));
+            swingFrame.position.set(12, 2.5, 0);
+            pgGroup.add(swingFrame);
+
+            pgGroup.position.set(x, 0, z);
+            scene.add(pgGroup);
+        }
+
+        function triggerAbduction() {
+            gameState = "ABDUCTED";
+
+            ufoGroup = new THREE.Group();
+            const ufoBody = new THREE.Mesh(new THREE.CylinderGeometry(10, 18, 4, 32), new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.8 }));
+            ufoGroup.add(ufoBody);
+            ufoGroup.position.set(playerPos.x, playerPos.y + 25, playerPos.z);
+            scene.add(ufoGroup);
+
+            const beam = new THREE.Mesh(new THREE.CylinderGeometry(5, 10, 25, 32, 1, true), new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.4, side: THREE.DoubleSide }));
+            beam.position.set(playerPos.x, playerPos.y + 12.5, playerPos.z);
+            scene.add(beam);
+        }
+
+        function enterUfoInside() {
+            gameState = "UFO_INSIDE";
+            while(scene.children.length > 0){ scene.remove(scene.children[0]); }
+
+            scene.background = new THREE.Color(0x020617);
+
+            const room = new THREE.Mesh(new THREE.SphereGeometry(12, 32, 16), new THREE.MeshStandardMaterial({ color: 0x1e293b, side: THREE.BackSide }));
+            scene.add(room);
+
+            for(let i = -1; i <= 1; i++) {
+                const alien = new THREE.Group();
+                const head = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 16), new THREE.MeshStandardMaterial({ color: 0x22c55e }));
+                head.position.y = 1.4;
+                const body = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.2, 1), new THREE.MeshStandardMaterial({ color: 0x15803d }));
+                body.position.y = 0.5;
+                alien.add(head, body);
+                alien.position.set(i * 2.5, 0, -4);
+                scene.add(alien);
+            }
+
+            camera.position.set(0, 1.2, 2);
+            camera.lookAt(0, 1, -4);
+
+            setTimeout(() => {
+                doFade(() => {
+                    document.getElementById('era-select-screen').style.display = 'flex';
+                    gameState = "ERA_SELECT";
+                });
+            }, 3000);
+        }
+
+        function selectEra(eraKey) {
+            document.getElementById('era-select-screen').style.display = 'none';
+
+            const list = dinoDB[eraKey];
+            currentDino = list[Math.floor(Math.random() * list.length)];
+
+            doFade(() => {
+                setupEggHatchScene();
+            });
+        }
+
+        function setupEggHatchScene() {
+            gameState = "EGG_HATCH";
+            while(scene.children.length > 0){ scene.remove(scene.children[0]); }
+
+            scene.background = new THREE.Color(0x292524);
+
+            const nest = new THREE.Mesh(new THREE.CylinderGeometry(2, 2.5, 0.4), new THREE.MeshStandardMaterial({ color: 0x78350f }));
+            nest.position.set(0, 0, 0); scene.add(nest);
+
+            eggMesh = new THREE.Mesh(new THREE.SphereGeometry(1.2, 32, 32), new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.6 }));
+            eggMesh.scale.set(1, 1.3, 1); eggMesh.position.set(0, 1.2, 0);
+            scene.add(eggMesh);
+
+            camera.position.set(0, 3.5, 4.5);
+            camera.lookAt(0, 1, 0);
+
+            document.getElementById('egg-ui').style.display = 'block';
+        }
+
+        function hatchEgg() {
+            document.getElementById('egg-ui').style.display = 'none';
+
+            scene.remove(eggMesh);
+
+            const dinoMesh = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.5, 2.2), new THREE.MeshStandardMaterial({ color: 0x15803d }));
+            dinoMesh.position.set(0, 1, 0); scene.add(dinoMesh);
+
+            camera.position.set(0, 1.5, 3.5);
+            camera.lookAt(0, 1, 0);
+
+            setTimeout(() => {
+                document.getElementById('dino-name').innerText = currentDino.name;
+                document.getElementById('dino-diet').innerText = currentDino.diet;
+                document.getElementById('dino-size').innerText = currentDino.size;
+                document.getElementById('dino-feat').innerText = currentDino.feat;
+                document.getElementById('dino-food').innerText = currentDino.food;
+                document.getElementById('dino-atk-val').innerText = currentDino.atk + "%";
+                document.getElementById('dino-def-val').innerText = currentDino.def + "%";
+
+                document.getElementById('info-card').style.display = 'block';
+
+                setTimeout(() => {
+                    document.getElementById('next-btn').style.display = 'inline-block';
+                }, 5000);
+            }, 1000);
+        }
+
+        function enterDinoWorld() {
+            document.getElementById('info-card').style.display = 'none';
+
+            doFade(() => {
+                gameState = "DINO_PLAY";
+                while(scene.children.length > 0){ scene.remove(scene.children[0]); }
+
+                scene.background = new THREE.Color(0xa5f3fc);
+
+                const worldGround = new THREE.Mesh(new THREE.PlaneGeometry(5000, 5000), new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.9 }));
+                worldGround.rotation.x = -Math.PI / 2; scene.add(worldGround);
+
+                for(let i=0; i<300; i++) {
+                    const tree = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 12), new THREE.MeshStandardMaterial({ color: 0x78350f }));
+                    const leaves = new THREE.Mesh(new THREE.ConeGeometry(4, 10, 8), new THREE.MeshStandardMaterial({ color: 0x166534 }));
+                    leaves.position.y = 8; tree.add(leaves);
+                    
+                    let tx = (Math.random() - 0.5) * 2000;
+                    let tz = (Math.random() - 0.5) * 2000;
+                    tree.position.set(tx, 6, tz); scene.add(tree);
+                }
+
+                for(let i=0; i<20; i++) {
+                    const otherDino = new THREE.Mesh(new THREE.BoxGeometry(3, 4, 6), new THREE.MeshStandardMaterial({ color: 0xb45309 }));
+                    otherDino.position.set((Math.random()-0.5)*800, 2, (Math.random()-0.5)*800);
+                    scene.add(otherDino);
+                }
+
+                document.getElementById('dino-hud').style.display = 'flex';
+                document.getElementById('hp-bar').style.width = currentDino.hp + '%';
+                document.getElementById('atk-bar').style.width = currentDino.atk + '%';
+                document.getElementById('def-bar').style.width = currentDino.def + '%';
+
+                playerPos.set(0, 2.5, 0);
+                yaw = 0; pitch = 0;
+            });
+        }
+
+        function onKeyDown(e) {
+            if (e.code === 'Space' && gameState === "LIVING_ROOM_TOP") switchToFirstPerson();
+            if (e.code === 'KeyW') moveForward = true;
+            if (e.code === 'KeyS') moveBackward = true;
+            if (e.code === 'KeyA') moveLeft = true;
+            if (e.code === 'KeyD') moveRight = true;
+        }
+
+        function onKeyUp(e) {
+            if (e.code === 'KeyW') moveForward = false;
+            if (e.code === 'KeyS') moveBackward = false;
+            if (e.code === 'KeyA') moveLeft = false;
+            if (e.code === 'KeyD') moveRight = false;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function checkCollisions(newPos) {
+            for (let i = 0; i < colliders.length; i++) {
+                let c = colliders[i];
+                if (newPos.x > c.minX && newPos.x < c.maxX && newPos.z > c.minZ && newPos.z < c.maxZ) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (gameState === "FIRST_PERSON" || gameState === "OUTSIDE" || gameState === "DINO_PLAY") {
+                const speed = (gameState === "DINO_PLAY") ? 1.2 : 0.7;
+
+                camera.rotation.order = "YXZ";
+                camera.rotation.y = yaw;
+                camera.rotation.x = pitch;
+
+                const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+                const side = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+
+                let nextPos = playerPos.clone();
+                if (moveForward) nextPos.addScaledVector(forward, speed);
+                if (moveBackward) nextPos.addScaledVector(forward, -speed);
+                if (moveLeft) nextPos.addScaledVector(side, -speed);
+                if (moveRight) nextPos.addScaledVector(side, speed);
+
+                if (gameState === "FIRST_PERSON" || gameState === "OUTSIDE") {
+                    if (!checkCollisions(nextPos)) {
+                        playerPos.copy(nextPos);
+                    } else {
+                        let testX = playerPos.clone(); testX.x = nextPos.x;
+                        if (!checkCollisions(testX)) playerPos.x = nextPos.x;
+
+                        let testZ = playerPos.clone(); testZ.z = nextPos.z;
+                        if (!checkCollisions(testZ)) playerPos.z = nextPos.z;
+                    }
+                } else {
+                    playerPos.copy(nextPos);
+                }
+
+                camera.position.copy(playerPos);
+
+                if (gameState === "FIRST_PERSON" && playerPos.z > 8.5) {
+                    document.getElementById('exit-btn-container').style.display = 'block';
+                }
+
+                if (gameState === "OUTSIDE" && playerPos.z < -700 && Math.abs(playerPos.x - 230) < 60) {
+                    triggerAbduction();
+                }
+            }
+
+            if (gameState === "ABDUCTED") {
+                playerPos.y += 0.2;
+                camera.position.copy(playerPos);
+                if (playerPos.y >= 26) {
+                    enterUfoInside();
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>"""
+
+# Streamlit 대시보드 화면에 렌더링
+components.html(game_html, height=1000, scrolling=False)
