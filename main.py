@@ -53,6 +53,7 @@ game_html = """<!DOCTYPE html>
             height: 100%;
             display: block;
             cursor: grab;
+            outline: none;
         }
         #game-canvas:active {
             cursor: grabbing;
@@ -230,13 +231,13 @@ game_html = """<!DOCTYPE html>
 
     <!-- UI 레이어 -->
     <div id="ui-layer">
-        <div id="instruction">스페이스바(Space)를 누르면 조종을 시작합니다.<br>(W,A,S,D키로 이동하고 마우스 클릭 드래그로 시점을 조절하세요)</div>
+        <div id="instruction">화면을 클릭한 후 스페이스바를 누르세요!<br>(W,A,S,D키로 이동하고 마우스 드래그로 시점을 조절하세요)</div>
         <div id="exit-btn-container" class="interactive">
             <button id="exit-btn" class="btn-style">🚪 문 열고 나가기</button>
         </div>
     </div>
 
-    <canvas id="game-canvas"></canvas>
+    <canvas id="game-canvas" tabindex="1"></canvas>
 
     <script>
         let scene, camera, renderer;
@@ -248,13 +249,9 @@ game_html = """<!DOCTYPE html>
         let playerPos = new THREE.Vector3(0, 1.6, 0);
         let characterMesh;
 
-        // AABB 충돌체 배열
         let colliders = [];
-
-        // UFO 연출
         let ufoGroup;
 
-        // 공룡 데이터베이스
         const dinoDB = {
             triassic: [
                 { name: "코엘로피시스", diet: "육식", size: "3m / 20kg", feat: "날렵하고 민첩한 날카로운 톱니 이빨을 가진 초기 공룡", food: "작은 파충류, 곤충", atk: 60, def: 40, hp: 70 },
@@ -300,7 +297,11 @@ game_html = """<!DOCTYPE html>
 
             window.addEventListener('resize', onWindowResize);
             
-            // 키보드 이벤트 (W, A, S, D 소문자, 대문자, 한글 상태 완벽 지원)
+            // 캔버스 클릭 시 포커스 부여하여 키 입력 확실히 받기
+            canvas.addEventListener('click', () => {
+                canvas.focus();
+            });
+
             window.addEventListener('keydown', onKeyDown);
             window.addEventListener('keyup', onKeyUp);
 
@@ -354,6 +355,7 @@ game_html = """<!DOCTYPE html>
             document.getElementById('start-screen').style.display = 'none';
             gameState = "LIVING_ROOM_TOP";
             document.getElementById('instruction').style.display = 'block';
+            canvas.focus();
 
             createComplexHouse();
 
@@ -449,6 +451,7 @@ game_html = """<!DOCTYPE html>
 
             playerPos.set(0, 1.6, 0);
             yaw = 0; pitch = 0;
+            canvas.focus();
         }
 
         function goOutside() {
@@ -464,6 +467,7 @@ game_html = """<!DOCTYPE html>
 
             playerPos.set(0, 1.6, 0);
             yaw = 0; pitch = 0;
+            canvas.focus();
         }
 
         function createTownCityAndSchool() {
@@ -702,10 +706,10 @@ game_html = """<!DOCTYPE html>
 
                 playerPos.set(0, 2.5, 0);
                 yaw = 0; pitch = 0;
+                canvas.focus();
             });
         }
 
-        // 키보드 누름 처리 (대소문자/한글 완벽 인지)
         function onKeyDown(e) {
             const key = e.key.toLowerCase();
             const code = e.code;
@@ -720,7 +724,6 @@ game_html = """<!DOCTYPE html>
             if (code === 'KeyD' || key === 'd' || key === 'ㅇ') moveRight = true;
         }
 
-        // 키보드 뗌 처리
         function onKeyUp(e) {
             const key = e.key.toLowerCase();
             const code = e.code;
@@ -807,5 +810,4 @@ game_html = """<!DOCTYPE html>
 </body>
 </html>"""
 
-# Streamlit 대시보드 화면에 렌더링
 components.html(game_html, height=1000, scrolling=False)
