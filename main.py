@@ -140,6 +140,8 @@ GAME_HTML = r"""
   let scene, camera, renderer, clock, player, yaw=0, pitch=0, pointerLocked=false;
   let phase='title', selectedEra='jurassic', hatchProgress=0, hatchStart=0, infoShownAt=0;
   let keys={}, objects=[], interactable=null, health=100, attack=50, defense=50, lastDamage=0;
+  // 벽과 가구 등 충돌 대상
+  let solidMeshes=[];
   let worldGroup, playerGroup, eggGroup, dinosaurGroup, alienGroup, cityGroup;
   let mouseDown=false, lastMouseX=0, lastMouseY=0, moving=false;
   const eras = {
@@ -205,14 +207,18 @@ GAME_HTML = r"""
     const m = new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz), material);
     m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true;
     if(opts.rotationY) m.rotation.y=opts.rotationY;
-    parent.add(m); return m;
+    parent.add(m);
+    if(sx < 45 && sy > .35 && sz < 45) m.userData.solid = true;
+    return m;
   }
   function sphere(parent,x,y,z,r,material, sx=1,sy=1,sz=1) {
     const m=new THREE.Mesh(new THREE.SphereGeometry(r,16,12),material); m.position.set(x,y,z); m.scale.set(sx,sy,sz);
     m.castShadow=true; parent.add(m); return m;
   }
   function cylinder(parent,x,y,z,rt,rb,h,material,segments=10) {
-    const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,segments),material); m.position.set(x,y,z); m.castShadow=true; parent.add(m); return m;
+    const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,segments),material); m.position.set(x,y,z); m.castShadow=true; parent.add(m);
+    if(h > 1.35 && Math.max(rt,rb) > .12 && Math.max(rt,rb) < 1.2) m.userData.solid = true;
+    return m;
   }
   function clearWorld() {
     for(const obj of [...scene.children]) {
@@ -225,7 +231,7 @@ GAME_HTML = r"""
     if(dinosaurGroup) scene.remove(dinosaurGroup);
     if(alienGroup) scene.remove(alienGroup);
     worldGroup=cityGroup=eggGroup=dinosaurGroup=alienGroup=null;
-    objects=[]; interactable=null;
+    objects=[]; interactable=null; solidMeshes=[];
   }
   function newWorld(color=0x73916a, sky=0xb5c9b2) {
     clearWorld();
@@ -532,6 +538,24 @@ GAME_HTML = r"""
     camera.position.copy(player.position);
     camera.rotation.order='YXZ'; camera.rotation.y=yaw; camera.rotation.x=pitch;
   }
+  function refreshSolidMeshes() {
+    solidMeshes=[];
+    scene.updateMatrixWorld(true);
+    scene.traverse(obj=>{ if(obj.isMesh && obj.userData.solid) solidMeshes.push(obj); });
+  }
+  function collidesAt(x,z) {
+    const radius = player.radius || .35;
+    const playerBottom = player.position.y - 1.65;
+    const playerTop = player.position.y + .12;
+    const probe = new THREE.Vector3(x, player.position.y, z);
+    for(const obj of solidMeshes) {
+      const b = new THREE.Box3().setFromObject(obj);
+      if(b.max.y < playerBottom || b.min.y > playerTop) continue;
+      if(probe.x + radius > b.min.x && probe.x - radius < b.max.x &&
+         probe.z + radius > b.min.z && probe.z - radius < b.max.z) return true;
+    }
+    return false;
+  }
   function movePlayer(dt) {
     if(!['village','city','school','prehistoric','home'].includes(phase)) return;
     const forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
@@ -545,7 +569,12 @@ GAME_HTML = r"""
     if(moving) {
       dir.normalize();
       const speed=keys.shift?10:player.speed;
-      player.position.addScaledVector(dir,speed*dt);
+      const stepX = dir.x * speed * dt;
+      const stepZ = dir.z * speed * dt;
+      const nextX = player.position.x + stepX;
+      if(!collidesAt(nextX, player.position.z)) player.position.x = nextX;
+      const nextZ = player.position.z + stepZ;
+      if(!collidesAt(player.position.x, nextZ)) player.position.z = nextZ;
       if(phase==='home') {
         player.position.x=THREE.MathUtils.clamp(player.position.x,-11,11);
         player.position.z=THREE.MathUtils.clamp(player.position.z,-9.2,9.3);
@@ -674,6 +703,7 @@ GAME_HTML = r"""
   function animate() {
     requestAnimationFrame(animate);
     const dt=Math.min(clock.getDelta(),.05);
+    if(solidMeshes.length===0 && ['prehistoric','village','city','school','home'].includes(phase)) refreshSolidMeshes();
     if(phase==='prehistoric' || phase==='village' || phase==='city' || phase==='school' || phase==='home') movePlayer(dt);
     if(phase==='prehistoric') {
       // gentle stat variation and environmental challenge
@@ -732,7 +762,20 @@ GAME_HTML = r"""
       pitch=THREE.MathUtils.clamp(pitch,-1.45,1.45);
       updateCamera();
     });
-    // touch/mouse drag fallback
+    // 마우스 클릭 후 드래그로 시점 회전(포인터 잠금 미지원 환경용)
+    canvas.addEventListener('mousedown',e=>{
+      if(pointerLocked || !['village','city','school','prehistoric','home'].includes(phase)) return;
+      mouseDown=true; lastMouseX=e.clientX; lastMouseY=e.clientY;
+    });
+    window.addEventListener('mouseup',()=>mouseDown=false);
+    window.addEventListener('mousemove',e=>{
+      if(pointerLocked || !mouseDown || !['village','city','school','prehistoric','home'].includes(phase)) return;
+      yaw-=(e.clientX-lastMouseX)*.004;
+      pitch-=(e.clientY-lastMouseY)*.003;
+      pitch=THREE.MathUtils.clamp(pitch,-1.45,1.45);
+      lastMouseX=e.clientX; lastMouseY=e.clientY; updateCamera();
+    });
+    // 모바일 터치 드래그
     canvas.addEventListener('touchstart',e=>{
       if(e.touches.length){lastMouseX=e.touches[0].clientX;lastMouseY=e.touches[0].clientY;}
     },{passive:true});
