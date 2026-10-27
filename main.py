@@ -143,7 +143,7 @@ GAME_HTML = r"""
   // 벽과 가구 등 충돌 대상
   let solidMeshes=[];
   let worldGroup, playerGroup, eggGroup, dinosaurGroup, alienGroup, cityGroup;
-  let mouseDown=false, lastMouseX=0, lastMouseY=0, moving=false;
+  let mouseDown=false, lastMouseX=0, lastMouseY=0, moving=false, abductionTriggered=false;
   const eras = {
     triassic: {
       label:'트라이아스기', color:0x9ca85a, sky:0xb7c6a0, ground:0x6f824a,
@@ -265,9 +265,9 @@ GAME_HTML = r"""
   function addHouse(parent,x,z,scale=1,color=0xd9c9a8) {
     const wall=mat(color), roof=mat(0x77463a), dark=mat(0x45352a), glass=mat(0x80b9c9,.35);
     box(parent,x,1.35*scale,z,5*scale,2.7*scale,4.6*scale,wall);
-    const roofL=box(parent,x-1.35*scale,3.0*scale,z,2.1*scale,.25*scale,5.1*scale,roof,{rotationY:0});
+    const roofL=box(parent,x-.98*scale,3.15*scale,z,2.45*scale,.25*scale,5.25*scale,roof);
     roofL.rotation.z=.55;
-    const roofR=box(parent,x+1.35*scale,3.0*scale,z,2.1*scale,.25*scale,5.1*scale,roof);
+    const roofR=box(parent,x+.98*scale,3.15*scale,z,2.45*scale,.25*scale,5.25*scale,roof);
     roofR.rotation.z=-.55;
     box(parent,x,0.85*scale,z+2.32*scale,.9*scale,1.7*scale,.12*scale,dark);
     sphere(parent,x+.28*scale,.9*scale,z+2.42*scale,.06*scale,mat(0xe4c15b));
@@ -321,7 +321,7 @@ GAME_HTML = r"""
     for(let x=-4;x<=4;x+=1) box(g,x,.65,13.1,.08,1.2,.08,trim);
     box(g,0,1.2,13.1,8,.1,.1,trim);
     // room labels on floor
-    const exitDoor=addDoor(g,0,9.8,0,'나가기'); exitDoor.userData.trigger='village';
+    addDoor(g,0,9.8,0,'나가기');
     addDoor(g,-3.2,-1,Math.PI/2,'주방으로 이동');
     addDoor(g,4,-1,Math.PI/2,'욕실로 이동');
     addDoor(g,-7,0,0,'침실로 이동');
@@ -330,23 +330,35 @@ GAME_HTML = r"""
     for(let i=0;i<9;i++) addTree(g,-25+i*6,-20-Math.random()*10,.8+Math.random()*.5,i%2===0);
     for(let i=0;i<5;i++) addHouse(g,-18+i*9,-30,1.0, [0xd8c8a5,0xd7b9a2,0xb9c9b5][i%3]);
     player.position.set(0,1.7,5.7); yaw=0; pitch=0; updateCamera();
-    phase='home'; refreshSolidMeshes(); setVisible('hud',false); setVisible('help',true); setVisible('crosshair',false);
+    phase='home'; setVisible('hud',false); setVisible('help',true); setVisible('crosshair',false);
   }
   function buildVillage() {
     const g=newWorld(0x687d4d,0xabc4d0);
-    for(let i=0;i<14;i++){
-      const x=(i%4-1.5)*17+(Math.random()-.5)*3;
-      const z=-10-Math.floor(i/4)*17;
-      addHouse(g,x,z,.85+Math.random()*.3,[0xdccaa9,0xc8d2bf,0xd7b7a3,0xd9d9c7][i%4]);
-      for(let j=0;j<4;j++) addTree(g,x+(Math.random()-.5)*10,z+(Math.random()-.5)*9,.7+Math.random()*.5,j%2===0);
+    abductionTriggered=false;
+    const houseSpots=[];
+    for(let i=0;i<14;i++) houseSpots.push({
+      x:(i%4-1.5)*17+(Math.random()-.5)*3,
+      z:-10-Math.floor(i/4)*17,
+      scale:.85+Math.random()*.3,
+      color:[0xdccaa9,0xc8d2bf,0xd7b7a3,0xd9d9c7][i%4]
+    });
+    for(const h of houseSpots) addHouse(g,h.x,h.z,h.scale,h.color);
+    for(const h of houseSpots) for(let j=0;j<4;j++) {
+      let tx, tz, safe=false;
+      for(let attempt=0;attempt<16;attempt++) {
+        tx=h.x+(Math.random()-.5)*19;
+        tz=h.z+(Math.random()-.5)*19;
+        safe=!houseSpots.some(q=>Math.abs(tx-q.x)<5.0*q.scale && Math.abs(tz-q.z)<5.5*q.scale);
+        if(safe) break;
+      }
+      if(safe) addTree(g,tx,tz,.7+Math.random()*.5,j%2===0);
     }
     // road
     box(g,0,.015,-45,8,.05,120,mat(0x555954));
     for(let z=8;z>-110;z-=7) box(g,0,.05,z, .18,.03,3,mat(0xe9dfad));
     player.position.set(0,1.7,8); yaw=0; pitch=0; updateCamera();
     phase='village'; setVisible('hud',false); setVisible('help',true); setVisible('crosshair',true);
-    const villageDoor=addDoor(g,0,2,0,'마을로 나가기'); villageDoor.userData.trigger='city';
-    refreshSolidMeshes();
+    addDoor(g,0,2,0,'마을로 나가기');
   }
   function buildCity() {
     const g=newWorld(0x777b78,0xa9c0ce); cityGroup=g;
@@ -391,10 +403,14 @@ GAME_HTML = r"""
       }
     }
     // surrounding trees
-    for(let i=0;i<30;i++) addTree(g,-55+Math.random()*65,-185+Math.random()*55,.7+Math.random()*.6,i%2===0);
+    for(let i=0;i<30;i++) {
+      const tx=-55+Math.random()*65, tz=-185+Math.random()*55;
+      if(tx>-42 && tx<-2 && tz>-256 && tz<-208) continue;
+      addTree(g,tx,tz,.7+Math.random()*.6,i%2===0);
+    }
     player.position.set(0,1.7,8); yaw=0; pitch=0; updateCamera();
     phase='city'; setVisible('crosshair',true); setVisible('help',true); setVisible('hud',false);
-    const schoolTrigger=box(g,0,1,-140,13,3,4,mat(0x000000)); schoolTrigger.material.transparent=true; schoolTrigger.material.opacity=0;
+    const schoolTrigger=box(g,-22,1,-238,13,3,4,mat(0x000000)); schoolTrigger.material.transparent=true; schoolTrigger.material.opacity=0;
     schoolTrigger.userData.trigger='school'; objects.push(schoolTrigger);
   }
   function buildSchoolInterior() {
@@ -416,7 +432,7 @@ GAME_HTML = r"""
     box(g,0,1.6,17,5,3.2,.25,mat(0x6b513a)); box(g,0,1.6,16.8,4.4,2.5,.1,mat(0x223d32));
     addDoor(g,0,19.5,0,'운동장으로 나가기');
     player.position.set(0,1.7,7); yaw=0; pitch=0; updateCamera();
-    phase='school'; refreshSolidMeshes(); setVisible('help',true); setVisible('crosshair',true);
+    phase='school'; setVisible('help',true); setVisible('crosshair',true);
   }
   function addDinosaur(parent, spec, x=0,z=0,scale=1) {
     const group=new THREE.Group(); group.position.set(x,0,z); group.scale.setScalar(scale); parent.add(group);
@@ -504,7 +520,7 @@ GAME_HTML = r"""
     eggGroup.userData.egg=egg;
     for(let i=0;i<20;i++) addBush(g,(Math.random()-.5)*18,-8-Math.random()*20,.6);
     player.position.set(0,1.7,7); yaw=0; pitch=0; updateCamera();
-    phase='egg'; refreshSolidMeshes(); setVisible('hud',false); setVisible('help',false); setVisible('crosshair',false);
+    phase='egg'; setVisible('hud',false); setVisible('help',false); setVisible('crosshair',false);
     setVisible('eggHint',true); setVisible('infoCard',false); setVisible('nextHint',false);
     camera.position.set(0,5.2,14); camera.lookAt(0,1,-5);
   }
@@ -531,7 +547,7 @@ GAME_HTML = r"""
       sphere(alienGroup,x,14.85,-5,.8,alienSkin,.8,1,.7);
       for(const side of [-1,1]) sphere(alienGroup,x+side*.3,14.9,-5.55,.19,mat(0x08120e),1,.7,.5);
     }
-    player.position.set(0,1.7,8); yaw=0; pitch=0; updateCamera();
+    player.position.set(0,1.7,-5); yaw=0; pitch=0; updateCamera();
     phase='alien'; setVisible('alienText',true); setVisible('help',false); setVisible('crosshair',false);
   }
   function updateCamera() {
@@ -542,23 +558,18 @@ GAME_HTML = r"""
   function refreshSolidMeshes() {
     solidMeshes=[];
     scene.updateMatrixWorld(true);
-    scene.traverse(obj=>{
-      if(obj.isMesh && obj.userData.solid) {
-        obj.userData.collisionBox = new THREE.Box3().setFromObject(obj);
-        solidMeshes.push(obj);
-      }
-    });
+    scene.traverse(obj=>{ if(obj.isMesh && obj.userData.solid) solidMeshes.push(obj); });
   }
   function collidesAt(x,z) {
-    const radius = player.radius || .38;
-    const playerBottom = player.position.y - 1.55;
-    const playerTop = player.position.y + .05;
+    const radius = player.radius || .35;
+    const playerBottom = player.position.y - 1.65;
+    const playerTop = player.position.y + .12;
+    const probe = new THREE.Vector3(x, player.position.y, z);
     for(const obj of solidMeshes) {
-      const b = obj.userData.collisionBox;
-      if(!b) continue;
+      const b = new THREE.Box3().setFromObject(obj);
       if(b.max.y < playerBottom || b.min.y > playerTop) continue;
-      if(x + radius > b.min.x && x - radius < b.max.x &&
-         z + radius > b.min.z && z - radius < b.max.z) return true;
+      if(probe.x + radius > b.min.x && probe.x - radius < b.max.x &&
+         probe.z + radius > b.min.z && probe.z - radius < b.max.z) return true;
     }
     return false;
   }
@@ -600,6 +611,10 @@ GAME_HTML = r"""
     }
     updateCamera();
     checkInteractable();
+    if(phase==='city' && !abductionTriggered && player.position.distanceTo(new THREE.Vector3(-22,1.7,-218))<7) {
+      abductionTriggered=true;
+      fadeToBlack(()=>startAlienSequence());
+    }
   }
   function checkInteractable() {
     interactable=null;
@@ -610,7 +625,7 @@ GAME_HTML = r"""
       const dist=p.distanceTo(player.position);
       if(dist<nearest) { nearest=dist; interactable=o; }
     }
-    if(phase==='city' && player.position.distanceTo(new THREE.Vector3(0,1.7,-137))<6) interactable={userData:{label:'학교로 들어가기',trigger:'school'}};
+    if(phase==='city' && player.position.distanceTo(new THREE.Vector3(-22,1.7,-218))<10) interactable={userData:{label:'운동장에 들어가기',trigger:'yard'}};
     if(phase==='school' && player.position.z>16) interactable={userData:{label:'운동장으로 나가기',trigger:'yard'}};
     if(phase==='home' && player.position.z>8.1 && Math.abs(player.position.x)<2.5) interactable={userData:{label:'나가기',trigger:'village'}};
     if(phase==='village' && player.position.z< -90) interactable={userData:{label:'도시로 이동하기',trigger:'city'}};
@@ -620,34 +635,30 @@ GAME_HTML = r"""
   function interact() {
     if(!interactable) return;
     const trigger=interactable.userData.trigger;
-    if(phase==='home' && (trigger==='village' || player.position.z>8.1)) { buildVillage(); return; }
-    if(phase==='village' && (trigger==='city' || player.position.z < -90)) { buildCity(); return; }
-    if(phase==='city' && trigger==='school') {
-      // Encounter the UFO at the school approach, before the era-selection sequence.
+    if(phase==='home') { buildVillage(); return; }
+    if(phase==='village') { buildCity(); return; }
+    if(phase==='city' && trigger==='yard') {
+      // Entering the school playground triggers the alien abduction sequence.
       fadeToBlack(()=> { startAlienSequence(); });
       return;
     }
-    if(phase==='school' && trigger==='yard') { buildCity(); player.position.set(-22,1.7,-215); updateCamera(); return; }
+    if(phase==='city' && trigger==='school') { buildSchoolInterior(); return; }
+    if(phase==='school' && trigger==='yard') {
+      buildCity(); player.position.set(-22,1.7,-211); updateCamera(); checkInteractable(); return;
+    }
   }
   function startAlienSequence() {
+    abductionTriggered=true;
+    alienLiftComplete=false; alienFlyStartedAt=0;
     buildAlienScene();
     $('alienText').textContent='🛸 초록빛이 몸을 감싼다...';
     setTimeout(()=> {
-      $('alienText').textContent='👽 외계인: 새로운 세계에 온 것을 환영한다!';
-      player.position.y=5; updateCamera();
+      $('alienText').textContent='👽 외계인: 우주선으로 올라가는 중...';
     },1800);
     setTimeout(()=> {
-      player.position.y=13; updateCamera();
-      $('alienText').textContent='👽 셋의 인사와 함께 화면이 어두워진다...';
+      $('alienText').textContent='🛸 우주선 내부로 이동 중...';
     },3500);
-    setTimeout(()=> {
-      setVisible('message',true,'flex'); $('messageMain').textContent='시간을 넘어가는 중...';
-      $('messageSub').textContent='새로운 시대를 선택하세요';
-      fadeToBlack(()=> {
-        setVisible('message',false);
-        buildEraScreen();
-      });
-    },5600);
+    // The departure transition is handled after the saucer flies away in animate().
   }
   function buildEraScreen() {
     phase='era';
@@ -706,6 +717,7 @@ GAME_HTML = r"""
       $(name+'Pct').textContent=Math.round(val)+'%'; $(name+'Fill').style.width=val+'%';
     }
   }
+  let alienLiftComplete=false, alienFlyStartedAt=0;
   function animate() {
     requestAnimationFrame(animate);
     const dt=Math.min(clock.getDelta(),.05);
@@ -723,9 +735,28 @@ GAME_HTML = r"""
       if(dinosaurGroup) dinosaurGroup.rotation.y+=dt*.05;
     }
     if(phase==='hatching' && eggGroup) eggGroup.rotation.y+=dt*.3;
-    if(phase==='alien' && player.position.y>1.7) {
-      player.position.y=Math.max(1.7,player.position.y-dt*1.5);
-      updateCamera();
+    if(phase==='alien') {
+      // Lift the player into the saucer, stop at cabin height, then fly away.
+      if(!alienLiftComplete) {
+        player.position.y=Math.min(12.0,player.position.y+dt*2.4);
+        updateCamera();
+        if(player.position.y>=12.0) {
+          alienLiftComplete=true; alienFlyStartedAt=performance.now();
+          $('alienText').textContent='🛸 우주선 내부에 도착했다!';
+        }
+      } else if(performance.now()-alienFlyStartedAt>900) {
+        alienGroup.position.y += dt*1.2;
+        alienGroup.position.z -= dt*5.0;
+        player.position.z -= dt*5.0;
+        updateCamera();
+        if(performance.now()-alienFlyStartedAt>3600) {
+          setVisible('message',true,'flex');
+          $('messageMain').textContent='🛸 우주선이 하늘로 날아간다';
+          $('messageSub').textContent='새로운 시대를 선택하세요';
+          phase='alienDeparture';
+          setTimeout(()=>fadeToBlack(()=>{setVisible('message',false);buildEraScreen();}),1800);
+        }
+      }
     }
     if(renderer && renderer.domElement.style.display!=='none') renderer.render(scene,camera);
   }
