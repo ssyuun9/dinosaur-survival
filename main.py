@@ -321,7 +321,7 @@ GAME_HTML = r"""
     for(let x=-4;x<=4;x+=1) box(g,x,.65,13.1,.08,1.2,.08,trim);
     box(g,0,1.2,13.1,8,.1,.1,trim);
     // room labels on floor
-    addDoor(g,0,9.8,0,'나가기');
+    const exitDoor=addDoor(g,0,9.8,0,'나가기'); exitDoor.userData.trigger='village';
     addDoor(g,-3.2,-1,Math.PI/2,'주방으로 이동');
     addDoor(g,4,-1,Math.PI/2,'욕실로 이동');
     addDoor(g,-7,0,0,'침실로 이동');
@@ -330,7 +330,7 @@ GAME_HTML = r"""
     for(let i=0;i<9;i++) addTree(g,-25+i*6,-20-Math.random()*10,.8+Math.random()*.5,i%2===0);
     for(let i=0;i<5;i++) addHouse(g,-18+i*9,-30,1.0, [0xd8c8a5,0xd7b9a2,0xb9c9b5][i%3]);
     player.position.set(0,1.7,5.7); yaw=0; pitch=0; updateCamera();
-    phase='home'; setVisible('hud',false); setVisible('help',true); setVisible('crosshair',false);
+    phase='home'; refreshSolidMeshes(); setVisible('hud',false); setVisible('help',true); setVisible('crosshair',false);
   }
   function buildVillage() {
     const g=newWorld(0x687d4d,0xabc4d0);
@@ -345,7 +345,8 @@ GAME_HTML = r"""
     for(let z=8;z>-110;z-=7) box(g,0,.05,z, .18,.03,3,mat(0xe9dfad));
     player.position.set(0,1.7,8); yaw=0; pitch=0; updateCamera();
     phase='village'; setVisible('hud',false); setVisible('help',true); setVisible('crosshair',true);
-    addDoor(g,0,2,0,'마을로 나가기');
+    const villageDoor=addDoor(g,0,2,0,'마을로 나가기'); villageDoor.userData.trigger='city';
+    refreshSolidMeshes();
   }
   function buildCity() {
     const g=newWorld(0x777b78,0xa9c0ce); cityGroup=g;
@@ -415,7 +416,7 @@ GAME_HTML = r"""
     box(g,0,1.6,17,5,3.2,.25,mat(0x6b513a)); box(g,0,1.6,16.8,4.4,2.5,.1,mat(0x223d32));
     addDoor(g,0,19.5,0,'운동장으로 나가기');
     player.position.set(0,1.7,7); yaw=0; pitch=0; updateCamera();
-    phase='school'; setVisible('help',true); setVisible('crosshair',true);
+    phase='school'; refreshSolidMeshes(); setVisible('help',true); setVisible('crosshair',true);
   }
   function addDinosaur(parent, spec, x=0,z=0,scale=1) {
     const group=new THREE.Group(); group.position.set(x,0,z); group.scale.setScalar(scale); parent.add(group);
@@ -503,7 +504,7 @@ GAME_HTML = r"""
     eggGroup.userData.egg=egg;
     for(let i=0;i<20;i++) addBush(g,(Math.random()-.5)*18,-8-Math.random()*20,.6);
     player.position.set(0,1.7,7); yaw=0; pitch=0; updateCamera();
-    phase='egg'; setVisible('hud',false); setVisible('help',false); setVisible('crosshair',false);
+    phase='egg'; refreshSolidMeshes(); setVisible('hud',false); setVisible('help',false); setVisible('crosshair',false);
     setVisible('eggHint',true); setVisible('infoCard',false); setVisible('nextHint',false);
     camera.position.set(0,5.2,14); camera.lookAt(0,1,-5);
   }
@@ -541,18 +542,23 @@ GAME_HTML = r"""
   function refreshSolidMeshes() {
     solidMeshes=[];
     scene.updateMatrixWorld(true);
-    scene.traverse(obj=>{ if(obj.isMesh && obj.userData.solid) solidMeshes.push(obj); });
+    scene.traverse(obj=>{
+      if(obj.isMesh && obj.userData.solid) {
+        obj.userData.collisionBox = new THREE.Box3().setFromObject(obj);
+        solidMeshes.push(obj);
+      }
+    });
   }
   function collidesAt(x,z) {
-    const radius = player.radius || .35;
-    const playerBottom = player.position.y - 1.65;
-    const playerTop = player.position.y + .12;
-    const probe = new THREE.Vector3(x, player.position.y, z);
+    const radius = player.radius || .38;
+    const playerBottom = player.position.y - 1.55;
+    const playerTop = player.position.y + .05;
     for(const obj of solidMeshes) {
-      const b = new THREE.Box3().setFromObject(obj);
+      const b = obj.userData.collisionBox;
+      if(!b) continue;
       if(b.max.y < playerBottom || b.min.y > playerTop) continue;
-      if(probe.x + radius > b.min.x && probe.x - radius < b.max.x &&
-         probe.z + radius > b.min.z && probe.z - radius < b.max.z) return true;
+      if(x + radius > b.min.x && x - radius < b.max.x &&
+         z + radius > b.min.z && z - radius < b.max.z) return true;
     }
     return false;
   }
@@ -614,8 +620,8 @@ GAME_HTML = r"""
   function interact() {
     if(!interactable) return;
     const trigger=interactable.userData.trigger;
-    if(phase==='home') { buildVillage(); return; }
-    if(phase==='village') { buildCity(); return; }
+    if(phase==='home' && (trigger==='village' || player.position.z>8.1)) { buildVillage(); return; }
+    if(phase==='village' && (trigger==='city' || player.position.z < -90)) { buildCity(); return; }
     if(phase==='city' && trigger==='school') {
       // Encounter the UFO at the school approach, before the era-selection sequence.
       fadeToBlack(()=> { startAlienSequence(); });
