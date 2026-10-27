@@ -140,6 +140,7 @@ GAME_HTML = r"""
   let scene, camera, renderer, clock, player, yaw=0, pitch=0, pointerLocked=false;
   let phase='title', selectedEra='jurassic', hatchProgress=0, hatchStart=0, infoShownAt=0;
   let keys={}, objects=[], interactable=null, health=100, attack=50, defense=50, lastDamage=0;
+  // 벽과 가구 등 충돌 대상
   let solidMeshes=[];
   let worldGroup, playerGroup, eggGroup, dinosaurGroup, alienGroup, cityGroup;
   let mouseDown=false, lastMouseX=0, lastMouseY=0, moving=false;
@@ -264,15 +265,10 @@ GAME_HTML = r"""
   function addHouse(parent,x,z,scale=1,color=0xd9c9a8) {
     const wall=mat(color), roof=mat(0x77463a), dark=mat(0x45352a), glass=mat(0x80b9c9,.35);
     box(parent,x,1.35*scale,z,5*scale,2.7*scale,4.6*scale,wall);
-    
-    // 삼각형 지붕 (박공 지붕 형태: 4각 기둥을 45도 회전시켜 완전한 삼각형 모양 형성)
-    const roofRoof = new THREE.Mesh(new THREE.CylinderGeometry(0, 3.8 * scale, 2.2 * scale, 4, 1), roof);
-    roofRoof.position.set(x, 3.8 * scale, z);
-    roofRoof.rotation.y = Math.PI / 4;
-    roofRoof.scale.set(1, 1, 0.95);
-    roofRoof.castShadow = true; roofRoof.receiveShadow = true;
-    parent.add(roofRoof);
-
+    const roofL=box(parent,x-1.35*scale,3.0*scale,z,2.1*scale,.25*scale,5.1*scale,roof,{rotationY:0});
+    roofL.rotation.z=.55;
+    const roofR=box(parent,x+1.35*scale,3.0*scale,z,2.1*scale,.25*scale,5.1*scale,roof);
+    roofR.rotation.z=-.55;
     box(parent,x,0.85*scale,z+2.32*scale,.9*scale,1.7*scale,.12*scale,dark);
     sphere(parent,x+.28*scale,.9*scale,z+2.42*scale,.06*scale,mat(0xe4c15b));
     for(const wx of [-1.45,1.45]) {
@@ -290,36 +286,47 @@ GAME_HTML = r"""
   function buildHome() {
     const g=newWorld(0x867f68,0xa7b8b7); scene.fog=new THREE.Fog(0xa7b8b7,30,100);
     const floor=mat(0xbcae91), wall=mat(0xe1d8c7), trim=mat(0x7b644d), wood=mat(0x785239), tile=mat(0x7c9a9c);
+    // floorplan viewed from above-ish; rooms are open-roof for easier exploration
     box(g,0,-.1,0,24,.2,20,floor);
+    // perimeter walls with gaps for doors
     box(g,0,1.5,-10,24,3,.3,wall); box(g,-12,1.5,0,.3,3,20,wall); box(g,12,1.5,0,.3,3,20,wall);
     box(g,-5.8,1.5,10,12.4,3,.3,wall); box(g,5.8,1.5,10,12.4,3,.3,wall);
+    // internal partitions, leaving openings
     box(g,-3.2,1.5,-5, .25,3,10,wall); box(g,4.0,1.5,-5,.25,3,10,wall);
     box(g,0,1.5,0,8,.18,.18,trim);
     box(g,-7,1.5,2,.25,3,4,wall); box(g,7,1.5,2,.25,3,4,wall);
+    // kitchen, bathroom tile, bedrooms and balcony
     box(g,-7,0.015,-5,9,.03,9,mat(0xc6b99e));
     box(g,8,0.02,-5,7,.04,9,tile);
     box(g,-7,0.02,5,9,.04,8,mat(0xb59a80));
     box(g,7,0.02,5,8,.04,8,mat(0xb59a80));
+    // furniture living room
     box(g,0,.55,3,4,.8,1.4,mat(0x5c7664)); box(g,0,1.05,2.25,4,1,.3,mat(0x5c7664));
     box(g,-.1,.25,5.6,2.2,.3,1.3,wood); box(g,-.1,.43,5.6,2,.08,1.1,mat(0xd8c8a9));
     box(g,2.5,.8,-1,1.2,1.6,.3,trim); box(g,2.5,1.0,-.8,1,.8,.06,mat(0x263b3a));
+    // kitchen cabinets and counter
     box(g,-8,.9,-8,6,1.8,.7,mat(0x92704f)); box(g,-8,1.9,-8,6,.15,.8,mat(0xd2c8b7));
     box(g,-10,.9,-4.2,1.3,1.8,1.2,mat(0xb5b7b4)); box(g,-6,.9,-4.2,1.4,1.8,1.2,mat(0xb5b7b4));
+    // bathroom fixtures
     box(g,8,.4,-7,2.5,.7,1.5,mat(0xf2f1e9)); sphere(g,8,.9,-7,.5,mat(0xf2f1e9),1,.4,1);
     box(g,10,.6,-3.5,1.2,1.2,1.2,mat(0xf1f0e8)); cylinder(g,10,1.25,-3.5,.35,.35,.08,mat(0x9fc8d2));
+    // beds
     for(const [x,z] of [[-8,5],[7,5]]) {
       box(g,x,.3,z,3.4,.5,4.2,wood); box(g,x,.62,z,3.2,.2,4,mat(0xd9d5ca));
       box(g,x,.78,z-1.2,3.1,.25,1.2,mat(x<0?0x91a9bd:0x9fba9b));
       box(g,x-1.2,.78,z-1.5,.7,.22,.7,mat(0xf1e9d9)); box(g,x+1.2,.78,z-1.5,.7,.22,.7,mat(0xf1e9d9));
     }
+    // balcony
     box(g,0,.05,11.8,8,.1,3,mat(0x9e9b83));
     for(let x=-4;x<=4;x+=1) box(g,x,.65,13.1,.08,1.2,.08,trim);
     box(g,0,1.2,13.1,8,.1,.1,trim);
+    // room labels on floor
     addDoor(g,0,9.8,0,'나가기');
     addDoor(g,-3.2,-1,Math.PI/2,'주방으로 이동');
     addDoor(g,4,-1,Math.PI/2,'욕실로 이동');
     addDoor(g,-7,0,0,'침실로 이동');
     addDoor(g,7,0,0,'침실로 이동');
+    // exterior visible beyond front door
     for(let i=0;i<9;i++) addTree(g,-25+i*6,-20-Math.random()*10,.8+Math.random()*.5,i%2===0);
     for(let i=0;i<5;i++) addHouse(g,-18+i*9,-30,1.0, [0xd8c8a5,0xd7b9a2,0xb9c9b5][i%3]);
     player.position.set(0,1.7,5.7); yaw=0; pitch=0; updateCamera();
@@ -333,6 +340,7 @@ GAME_HTML = r"""
       addHouse(g,x,z,.85+Math.random()*.3,[0xdccaa9,0xc8d2bf,0xd7b7a3,0xd9d9c7][i%4]);
       for(let j=0;j<4;j++) addTree(g,x+(Math.random()-.5)*10,z+(Math.random()-.5)*9,.7+Math.random()*.5,j%2===0);
     }
+    // road
     box(g,0,.015,-45,8,.05,120,mat(0x555954));
     for(let z=8;z>-110;z-=7) box(g,0,.05,z, .18,.03,3,mat(0xe9dfad));
     player.position.set(0,1.7,8); yaw=0; pitch=0; updateCamera();
@@ -350,21 +358,27 @@ GAME_HTML = r"""
       for(let y=2;y<h-1;y+=2.5) for(let wx=-w/2+1;wx<w/2;wx+=1.7)
         box(g,x+wx,y,z+4.08,.9,1.25,.04,glass);
     }
+    // school at end of winding route, with left/right bends
     box(g,0,.03,-145,14,.1,38,road);
     box(g,-16,.03,-164,38,.1,10,road);
     box(g,-32,.03,-188,10,.1,40,road);
     box(g,-22,.03,-208,30,.1,10,road);
+    // school grounds and building
     box(g,-22,.12,-231,54,.2,42,mat(0x53804a));
     box(g,-22,4.5,-246,32,9,14,mat(0xd9d6c7));
     box(g,-22,9.2,-246,33,.5,15,mat(0x66767c));
     box(g,-22,2.4,-238.8,4.5,4.8,.25,mat(0x6b8b9b));
     for(let x=-34;x<=-10;x+=6) box(g,x,2.8,-238.7,2.3,3.2,.12,mat(0x83b3c5));
+    // gate posts and bars
     for(let x=-31;x<=-13;x+=3) box(g,x,1.8,-222,.16,3.6,.16,mat(0xddddcf));
     box(g,-22,3.6,-222,20,.2,.2,mat(0xddddcf));
+    // playground: court, slide, swings
     box(g,-22,.25,-218,16,.25,10,mat(0x6e8c9b));
     for(let i=0;i<5;i++) box(g,-28+i*3,.4,-218, .08,.05,10,mat(0xf4f0d6));
+    // slide
     box(g,-8,1.6,-232,.2,3,.2,mat(0xe9b53e)); box(g,-7,2.5,-230,2.2,.2,2,mat(0x4e8cc2));
     const slide=new THREE.Mesh(new THREE.BoxGeometry(1.4,.12,3.4),mat(0xe9b53e)); slide.position.set(-7,1.15,-227.7); slide.rotation.x=-.3; g.add(slide);
+    // swings
     for(let x=-37;x<=-33;x+=4) {
       cylinder(g,x,2.3,-215,.07,.07,4.5,mat(0x5c6060));
       cylinder(g,x+3,2.3,-215,.07,.07,4.5,mat(0x5c6060));
@@ -375,6 +389,7 @@ GAME_HTML = r"""
         box(g,xx,1.3,-214.45,.9,.14,.65,mat(0x3476aa));
       }
     }
+    // surrounding trees
     for(let i=0;i<30;i++) addTree(g,-55+Math.random()*65,-185+Math.random()*55,.7+Math.random()*.6,i%2===0);
     player.position.set(0,1.7,8); yaw=0; pitch=0; updateCamera();
     phase='city'; setVisible('crosshair',true); setVisible('help',true); setVisible('hud',false);
@@ -384,9 +399,11 @@ GAME_HTML = r"""
   function buildSchoolInterior() {
     const g=newWorld(0x9b9a85,0x91a9b4); scene.fog=new THREE.Fog(0x91a9b4,30,110);
     box(g,0,.05,0,36,.2,40,mat(0xc5c2b5));
+    // corridor walls and classrooms
     box(g,-18,2.2,0,.3,4.4,40,mat(0xe1dfd2)); box(g,18,2.2,0,.3,4.4,40,mat(0xe1dfd2));
     box(g,0,2.2,-20,36,4.4,.3,mat(0xe1dfd2));
     box(g,-7,2.2,0,.25,4.4,36,mat(0xe1dfd2)); box(g,7,2.2,0,.25,4.4,36,mat(0xe1dfd2));
+    // lockers, doors, classroom details
     for(let side of [-1,1]) for(let z=-15;z<=15;z+=3) {
       box(g,side*15,.95,z,1.2,1.9,1.0,mat(0x5d7c88));
       box(g,side*15.0,1.0,z,.04,.1,.06,mat(0xe4d8a9));
@@ -408,6 +425,7 @@ GAME_HTML = r"""
     sphere(group,0,1.85,-1.25,.56,skin,1,.95,1.1);
     sphere(group,0,1.35,.95,.75,skin,.55,.65,2.4);
     sphere(group,0,1.1,1.6,.5,skin,.6,.55,1.8);
+    // head and face direction toward -Z
     const headY=spec.kind==='long'?3.1:2.1;
     sphere(group,0,headY,-2.1,.65,skin,1,.85,1.05);
     sphere(group,0,headY-.28,-2.55,.48,belly,1,.45,.6);
@@ -415,6 +433,7 @@ GAME_HTML = r"""
       sphere(group,side*.45,headY+.1,-2.45,.12,dark);
       sphere(group,side*.47,headY+.12,-2.52,.05,eye);
     }
+    // legs
     for(const side of [-1,1]) for(const z of [-.75,.85]) {
       cylinder(group,side*.7,.58,z,.22,.28,1.05,skin,8);
       sphere(group,side*.7,.12,z-.08,.28,skin,1,.45,1.3);
@@ -452,6 +471,7 @@ GAME_HTML = r"""
   }
   function buildPrehistoric() {
     const era=eras[selectedEra], g=newWorld(era.ground,era.sky); scene.fog=new THREE.Fog(era.sky,42,230);
+    // varied terrain with meadow patches, water river and sea
     for(let i=0;i<120;i++) {
       const x=(Math.random()-.5)*250,z=(Math.random()-.5)*250;
       if(Math.abs(x)<7 && z<25 && z>-70) continue;
@@ -459,15 +479,19 @@ GAME_HTML = r"""
       else addBush(g,x,z,.7+Math.random()*1.4);
     }
     for(let i=0;i<55;i++) addRock(g,(Math.random()-.5)*180,(Math.random()-.5)*180,.5+Math.random()*1.5);
+    // river bends through the valley
     const water=mat(0x3c9eb3,.24,.1);
     for(let i=0;i<12;i++) box(g, -28+Math.sin(i*.6)*9,.08,-75+i*12,8,.12,15,water,{rotationY:.1});
+    // distant sea
     box(g,0,-.03,-155,340,.12,45,mat(0x247f9a,.28,.12));
     for(let i=0;i<16;i++) {
       const spec=era.dinos[Math.floor(Math.random()*era.dinos.length)];
       const d=addDinosaur(g,spec,(Math.random()-.5)*115,-25-Math.random()*135,.55+Math.random()*.6);
       d.rotation.y=Math.random()*Math.PI*2;
       dinosaurGroup=dinosaurGroup||new THREE.Group();
+      // The dino meshes are already children of the world.
     }
+    // nest near player
     eggGroup=new THREE.Group(); eggGroup.position.set(0,0,-5); g.add(eggGroup);
     const nestMat=mat(0x72533a), eggMat=mat(0xcac2a0,.45);
     for(let i=0;i<18;i++) {
@@ -551,130 +575,230 @@ GAME_HTML = r"""
       if(!collidesAt(nextX, player.position.z)) player.position.x = nextX;
       const nextZ = player.position.z + stepZ;
       if(!collidesAt(player.position.x, nextZ)) player.position.z = nextZ;
+      if(phase==='home') {
+        player.position.x=THREE.MathUtils.clamp(player.position.x,-11,11);
+        player.position.z=THREE.MathUtils.clamp(player.position.z,-9.2,9.3);
+      } else if(phase==='village') {
+        player.position.x=THREE.MathUtils.clamp(player.position.x,-70,70);
+        player.position.z=THREE.MathUtils.clamp(player.position.z,-110,18);
+      } else if(phase==='city') {
+        player.position.x=THREE.MathUtils.clamp(player.position.x,-44,44);
+        player.position.z=THREE.MathUtils.clamp(player.position.z,-250,20);
+      } else if(phase==='school') {
+        player.position.x=THREE.MathUtils.clamp(player.position.x,-17,17);
+        player.position.z=THREE.MathUtils.clamp(player.position.z,-18,18);
+      } else {
+        player.position.x=THREE.MathUtils.clamp(player.position.x,-150,150);
+        player.position.z=THREE.MathUtils.clamp(player.position.z,-180,150);
+      }
     }
     updateCamera();
+    checkInteractable();
   }
-  function checkInteractions() {
+  function checkInteractable() {
     interactable=null;
-    for(const obj of objects) {
-      if(!obj.userData.interact && !obj.userData.trigger) continue;
-      const dist=obj.position.distanceTo(player.position);
-      if(dist < 3.2) {
-        interactable=obj;
-        break;
-      }
+    let nearest=3.0;
+    for(const o of objects) {
+      if(!o.parent) continue;
+      const p=new THREE.Vector3(); o.getWorldPosition(p);
+      const dist=p.distanceTo(player.position);
+      if(dist<nearest) { nearest=dist; interactable=o; }
     }
-    if(interactable) {
-      $('centerPrompt').style.display='block';
-      $('interactBtn').innerText = interactable.userData.label || '상호작용';
-    } else {
-      $('centerPrompt').style.display='none';
-    }
+    if(phase==='city' && player.position.distanceTo(new THREE.Vector3(0,1.7,-137))<6) interactable={userData:{label:'학교로 들어가기',trigger:'school'}};
+    if(phase==='school' && player.position.z>16) interactable={userData:{label:'운동장으로 나가기',trigger:'yard'}};
+    if(phase==='home' && player.position.z>8.1 && Math.abs(player.position.x)<2.5) interactable={userData:{label:'나가기',trigger:'village'}};
+    if(phase==='village' && player.position.z< -90) interactable={userData:{label:'도시로 이동하기',trigger:'city'}};
+    setVisible('centerPrompt',!!interactable);
+    if(interactable) $('interactBtn').textContent=interactable.userData.label||'상호작용';
   }
-  function triggerInteract() {
+  function interact() {
     if(!interactable) return;
-    if(interactable.userData.trigger==='school') {
-      fadeToBlack(()=>{ buildSchoolInterior(); refreshSolidMeshes(); });
-    } else if(interactable.userData.label==='마을로 나가기') {
-      fadeToBlack(()=>{ buildCity(); refreshSolidMeshes(); });
-    } else if(interactable.userData.label==='운동장으로 나가기') {
-      fadeToBlack(()=>{ buildCity(); refreshSolidMeshes(); });
-    } else if(interactable.userData.label==='나가기') {
-      if(phase==='home') {
-        fadeToBlack(()=>{ buildVillage(); refreshSolidMeshes(); });
-      } else if(phase==='school') {
-        fadeToBlack(()=>{ buildCity(); refreshSolidMeshes(); });
+    const trigger=interactable.userData.trigger;
+    if(phase==='home') { buildVillage(); return; }
+    if(phase==='village') { buildCity(); return; }
+    if(phase==='city' && trigger==='school') {
+      // Encounter the UFO at the school approach, before the era-selection sequence.
+      fadeToBlack(()=> { startAlienSequence(); });
+      return;
+    }
+    if(phase==='school' && trigger==='yard') { buildCity(); player.position.set(-22,1.7,-215); updateCamera(); return; }
+  }
+  function startAlienSequence() {
+    buildAlienScene();
+    $('alienText').textContent='🛸 초록빛이 몸을 감싼다...';
+    setTimeout(()=> {
+      $('alienText').textContent='👽 외계인: 새로운 세계에 온 것을 환영한다!';
+      player.position.y=5; updateCamera();
+    },1800);
+    setTimeout(()=> {
+      player.position.y=13; updateCamera();
+      $('alienText').textContent='👽 셋의 인사와 함께 화면이 어두워진다...';
+    },3500);
+    setTimeout(()=> {
+      setVisible('message',true,'flex'); $('messageMain').textContent='시간을 넘어가는 중...';
+      $('messageSub').textContent='새로운 시대를 선택하세요';
+      fadeToBlack(()=> {
+        setVisible('message',false);
+        buildEraScreen();
+      });
+    },5600);
+  }
+  function buildEraScreen() {
+    phase='era';
+    setVisible('titleScreen',false); setVisible('eraScreen',true,'flex');
+    setVisible('hud',false); setVisible('help',false); setVisible('crosshair',false);
+    setVisible('alienText',false); setVisible('centerPrompt',false);
+    if(renderer) renderer.domElement.style.display='none';
+  }
+  function chooseEra(era) {
+    selectedEra=era;
+    setVisible('eraScreen',false);
+    renderer.domElement.style.display='block';
+    fadeToBlack(()=> {
+      buildPrehistoric();
+      setVisible('titleScreen',false);
+      setVisible('eraScreen',false);
+    });
+  }
+  function hatchEgg() {
+    if(phase!=='egg') return;
+    phase='hatching'; setVisible('eggHint',false);
+    hatchStart=performance.now();
+    const egg=eggGroup?.userData.egg;
+    let steps=0;
+    const crackTimer=setInterval(()=>{
+      steps++;
+      if(egg) { egg.rotation.z=(Math.random()-.5)*.08*steps; egg.scale.x*=.97; egg.scale.y*=.98; }
+      if(steps>=8) {
+        clearInterval(crackTimer);
+        const list=eras[selectedEra].dinos;
+        const spec=list[Math.floor(Math.random()*list.length)];
+        buildHatchedDino(spec);
+        $('dinoName').textContent=spec.name;
+        $('dinoFacts').innerHTML='<b>식성:</b> '+spec.diet+'<br><b>크기:</b> '+spec.size+
+          '<br><b>특징:</b> '+spec.traits+'<br><b>주요 먹이:</b> '+spec.food+'<br><b>공격·방어:</b> '+spec.combat;
+        setTimeout(()=> { setVisible('infoCard',true); infoShownAt=performance.now(); },1000);
+        setTimeout(()=> { setVisible('nextHint',true); },5000);
+        phase='hatched';
       }
+    },170);
+  }
+  function enterPrehistoric() {
+    setVisible('infoCard',false); setVisible('nextHint',false);
+    fadeToBlack(()=> {
+      // return to full free-roam prehistoric view; keep era and add a random nest in the distance
+      buildPrehistoric();
+      phase='prehistoric';
+      setVisible('hud',true); setVisible('help',true); setVisible('crosshair',true);
+      setVisible('eggHint',false); setVisible('infoCard',false); setVisible('nextHint',false);
+      camera.position.copy(player.position); updateCamera();
+      health=100; attack=50+Math.random()*20; defense=50+Math.random()*20; updateStats();
+    });
+  }
+  function updateStats() {
+    for(const [name,val] of [['health',health],['attack',attack],['defense',defense]]) {
+      $(name+'Pct').textContent=Math.round(val)+'%'; $(name+'Fill').style.width=val+'%';
     }
   }
   function animate() {
     requestAnimationFrame(animate);
-    const dt = Math.min(clock.getDelta(), 0.1);
-    movePlayer(dt);
-    if(phase==='home'||phase==='village'||phase==='city'||phase==='school') {
-      checkInteractions();
-    }
-    renderer.render(scene, camera);
-  }
-
-  // Event Listeners
-  window.addEventListener('keydown', e => {
-    keys[e.key.toLowerCase()] = true;
-    if(e.code==='Space') {
-      if(phase==='home'||phase==='village'||phase==='city'||phase==='school') {
-        triggerInteract();
+    const dt=Math.min(clock.getDelta(),.05);
+    if(solidMeshes.length===0 && ['prehistoric','village','city','school','home'].includes(phase)) refreshSolidMeshes();
+    if(phase==='prehistoric' || phase==='village' || phase==='city' || phase==='school' || phase==='home') movePlayer(dt);
+    if(phase==='prehistoric') {
+      // gentle stat variation and environmental challenge
+      if(performance.now()-lastDamage>8000) {
+        lastDamage=performance.now();
+        if(Math.random()<.18) health=Math.max(20,health-2);
+        attack=THREE.MathUtils.clamp(attack+(Math.random()-.48)*1.4,25,100);
+        defense=THREE.MathUtils.clamp(defense+(Math.random()-.52)*1.1,25,100);
+        updateStats();
       }
+      if(dinosaurGroup) dinosaurGroup.rotation.y+=dt*.05;
     }
+    if(phase==='hatching' && eggGroup) eggGroup.rotation.y+=dt*.3;
+    if(phase==='alien' && player.position.y>1.7) {
+      player.position.y=Math.max(1.7,player.position.y-dt*1.5);
+      updateCamera();
+    }
+    if(renderer && renderer.domElement.style.display!=='none') renderer.render(scene,camera);
+  }
+  // Start / era controls
+  $('startBtn').addEventListener('click',()=> {
+    setVisible('titleScreen',false);
+    renderer.domElement.style.display='block';
+    buildHome();
+    setVisible('help',true);
   });
-  window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
-
-  $('startBtn').addEventListener('click', () => {
-    fadeToBlack(() => {
-      setVisible('titleScreen', false);
-      setVisible('eraScreen', true);
+  document.querySelectorAll('.era').forEach(b=>b.addEventListener('click',()=>chooseEra(b.dataset.era)));
+  $('interactBtn').addEventListener('click',interact);
+  $('hatchBtn').addEventListener('click',hatchEgg);
+  $('nextBtn').addEventListener('click',enterPrehistoric);
+  window.addEventListener('keydown',e=>{
+    const k=e.key.toLowerCase(); keys[k]=true;
+    if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault();
+    if(k===' ' && phase==='home' && !interactable) {
+      // Space starts movement by requesting mouse lock; it is not required for WASD.
+      renderer.domElement.requestPointerLock?.();
+    } else if(k===' ' && interactable && ['home','village','city','school'].includes(phase)) interact();
+    if(k==='e') interact();
+    if(k==='escape') document.exitPointerLock?.();
+  });
+  window.addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+  function rendererPointerSetup() {
+    // Canvas click locks the pointer for FPS look. Escape releases it.
+    const canvas=renderer.domElement;
+    canvas.addEventListener('click',()=> {
+      if(['village','city','school','prehistoric','home'].includes(phase)) canvas.requestPointerLock?.();
     });
-  });
-
-  document.querySelectorAll('.era').forEach(btn => {
-    btn.addEventListener('click', () => {
-      selectedEra = btn.dataset.era;
-      setVisible('eraScreen', false);
-      $('messageMain').innerText = `${eras[selectedEra].label}로 이동 중...`;
-      setVisible('message', true, 'flex');
-      fadeToBlack(() => {
-        buildPrehistoric();
-        refreshSolidMeshes();
-        setTimeout(() => setVisible('message', false), 800);
-      });
+    document.addEventListener('pointerlockchange',()=> {
+      pointerLocked=document.pointerLockElement===canvas;
+      if(pointerLocked) setVisible('help',true);
     });
-  });
-
-  $('hatchBtn').addEventListener('click', () => {
-    const spec = eras[selectedEra].dinos[0];
-    buildHatchedDino(spec);
-    setVisible('eggHint', false);
-    setVisible('infoCard', true);
-    $('dinoName').innerText = spec.name;
-    $('dinoFacts').innerHTML = `<b>식성:</b> ${spec.diet}<br><b>크기:</b> ${spec.size}<br><b>특징:</b> ${spec.traits}<br><b>전투:</b> ${spec.combat}`;
-    setVisible('nextHint', true);
-  });
-
-  $('nextBtn').addEventListener('click', () => {
-    fadeToBlack(() => {
-      setVisible('infoCard', false);
-      setVisible('nextHint', false);
-      buildAlienScene();
+    document.addEventListener('mousemove',e=>{
+      if(!pointerLocked || !['village','city','school','prehistoric','home'].includes(phase)) return;
+      yaw-=e.movementX*.0022;
+      pitch-=e.movementY*.0020;
+      pitch=THREE.MathUtils.clamp(pitch,-1.45,1.45);
+      updateCamera();
     });
-  });
-
-  $('interactBtn').addEventListener('click', () => { triggerInteract(); });
-
-  // Mouse & Touch Controls
-  renderer.domElement.addEventListener('mousedown', e => {
-    mouseDown = true; lastMouseX = e.clientX; lastMouseY = e.clientY;
-  });
-  window.addEventListener('mouseup', () => { mouseDown = false; });
-  window.addEventListener('mousemove', e => {
-    if(!mouseDown) return;
-    const dx = e.clientX - lastMouseX;
-    const dy = e.clientY - lastMouseY;
-    lastMouseX = e.clientX; lastMouseY = e.clientY;
-    yaw -= dx * 0.003;
-    pitch -= dy * 0.003;
-    pitch = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, pitch));
-    updateCamera();
-  });
-
-  document.querySelectorAll('.controlBtn').forEach(btn => {
-    const k = btn.dataset.key;
-    btn.addEventListener('touchstart', e => { e.preventDefault(); keys[k] = true; });
-    btn.addEventListener('touchend', e => { e.preventDefault(); keys[k] = false; });
-  });
-
+    // 마우스 클릭 후 드래그로 시점 회전(포인터 잠금 미지원 환경용)
+    canvas.addEventListener('mousedown',e=>{
+      if(pointerLocked || !['village','city','school','prehistoric','home'].includes(phase)) return;
+      mouseDown=true; lastMouseX=e.clientX; lastMouseY=e.clientY;
+    });
+    window.addEventListener('mouseup',()=>mouseDown=false);
+    window.addEventListener('mousemove',e=>{
+      if(pointerLocked || !mouseDown || !['village','city','school','prehistoric','home'].includes(phase)) return;
+      yaw-=(e.clientX-lastMouseX)*.004;
+      pitch-=(e.clientY-lastMouseY)*.003;
+      pitch=THREE.MathUtils.clamp(pitch,-1.45,1.45);
+      lastMouseX=e.clientX; lastMouseY=e.clientY; updateCamera();
+    });
+    // 모바일 터치 드래그
+    canvas.addEventListener('touchstart',e=>{
+      if(e.touches.length){lastMouseX=e.touches[0].clientX;lastMouseY=e.touches[0].clientY;}
+    },{passive:true});
+    canvas.addEventListener('touchmove',e=>{
+      if(e.touches.length && ['village','city','school','prehistoric','home'].includes(phase)) {
+        const t=e.touches[0]; yaw-=(t.clientX-lastMouseX)*.006; pitch-=(t.clientY-lastMouseY)*.006;
+        pitch=THREE.MathUtils.clamp(pitch,-1.35,1.35); lastMouseX=t.clientX;lastMouseY=t.clientY;updateCamera();
+      }
+    },{passive:true});
+    document.querySelectorAll('[data-key]').forEach(btn=>{
+      const k=btn.dataset.key;
+      btn.addEventListener('touchstart',e=>{e.preventDefault();keys[k]=true;},{passive:false});
+      btn.addEventListener('touchend',e=>{e.preventDefault();keys[k]=false;},{passive:false});
+      btn.addEventListener('mousedown',()=>keys[k]=true); btn.addEventListener('mouseup',()=>keys[k]=false);
+    });
+  }
   initThree();
+  renderer.domElement.style.display='none';
+  rendererPointerSetup();
 })();
 </script>
+</body>
 </html>
 """
 
-components.html(GAME_HTML, height=750, scrolling=False)
+components.html(GAME_HTML, height=1000, scrolling=False)
