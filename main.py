@@ -351,11 +351,22 @@ GAME_HTML = r"""
         safe=!houseSpots.some(q=>Math.abs(tx-q.x)<5.0*q.scale && Math.abs(tz-q.z)<5.5*q.scale);
         if(safe) break;
       }
-      if(safe) addTree(g,tx,tz,.7+Math.random()*.5,j%2===0);
+      // Keep the roadway and the school approach completely clear of trees.
+      if(safe && !(Math.abs(tx)<5.8 && tz<18 && tz>-112) && !(Math.abs(tx)<14 && tz<-76 && tz>-108)) addTree(g,tx,tz,.7+Math.random()*.5,j%2===0);
     }
     // road
     box(g,0,.015,-45,8,.05,120,mat(0x555954));
     for(let z=8;z>-110;z-=7) box(g,0,.05,z, .18,.03,3,mat(0xe9dfad));
+    // School at the far end of the village houses, directly connected to the road.
+    box(g,0,.12,-94,38,.2,32,mat(0x4c7948));
+    box(g,0,3.5,-98,22,7,13,mat(0xd8d8c9));
+    box(g,0,7.1,-98,23,.35,14,mat(0x586b75));
+    box(g,0,1.65,-91.35,3.1,3.3,.18,mat(0x527b8b));
+    for(let x=-7;x<=7;x+=4) box(g,x,2.25,-91.25,1.65,1.7,.1,mat(0x8fc1d0));
+    box(g,0,4.7,-91.18,9,.65,.12,mat(0xf2edda));
+    // School entrance interaction marker (invisible to the player).
+    const villageSchool=box(g,0,1.2,-87,10,2.8,2,mat(0x000000));
+    villageSchool.material.transparent=true; villageSchool.material.opacity=0; villageSchool.userData.trigger='school'; objects.push(villageSchool);
     player.position.set(0,1.7,8); yaw=0; pitch=0; updateCamera();
     phase='village'; setVisible('hud',false); setVisible('help',true); setVisible('crosshair',true);
     addDoor(g,0,2,0,'마을로 나가기');
@@ -628,7 +639,7 @@ GAME_HTML = r"""
     if(phase==='city' && player.position.distanceTo(new THREE.Vector3(-22,1.7,-218))<10) interactable={userData:{label:'운동장에 들어가기',trigger:'yard'}};
     if(phase==='school' && player.position.z>16) interactable={userData:{label:'운동장으로 나가기',trigger:'yard'}};
     if(phase==='home' && player.position.z>8.1 && Math.abs(player.position.x)<2.5) interactable={userData:{label:'나가기',trigger:'village'}};
-    if(phase==='village' && player.position.z< -90) interactable={userData:{label:'도시로 이동하기',trigger:'city'}};
+    if(phase==='village' && player.position.z< -79 && player.position.z> -96 && Math.abs(player.position.x)<8) interactable={userData:{label:'학교에 들어가기',trigger:'school'}};
     setVisible('centerPrompt',!!interactable);
     if(interactable) $('interactBtn').textContent=interactable.userData.label||'상호작용';
   }
@@ -636,7 +647,7 @@ GAME_HTML = r"""
     if(!interactable) return;
     const trigger=interactable.userData.trigger;
     if(phase==='home') { buildVillage(); return; }
-    if(phase==='village') { buildCity(); return; }
+    if(phase==='village' && trigger==='school') { buildSchoolInterior(); startSchoolAlienWarning(); return; }
     if(phase==='city' && trigger==='yard') {
       // Entering the school playground triggers the alien abduction sequence.
       fadeToBlack(()=> { startAlienSequence(); });
@@ -646,6 +657,34 @@ GAME_HTML = r"""
     if(phase==='school' && trigger==='yard') {
       buildCity(); player.position.set(-22,1.7,-211); updateCamera(); checkInteractable(); return;
     }
+  }
+  let schoolAliens=[], schoolChaseStartedAt=0, schoolDragStartedAt=0;
+  function startSchoolAlienWarning() {
+    phase='schoolWarning'; schoolAliens=[];
+    setVisible('help',false); setVisible('crosshair',false); setVisible('centerPrompt',false);
+    $('alienText').textContent='⚠️ 경고: 학교 안에 외계인이 접근하고 있습니다!';
+    setVisible('alienText',true);
+    // The warning remains visible for three seconds before the aliens appear.
+    setTimeout(()=> {
+      if(phase!=='schoolWarning') return;
+      const alienMat=mat(0x35c96b), dark=mat(0x06150e), eye=mat(0xf4ffda);
+      for(const x of [-2.7,2.7]) {
+        const a=new THREE.Group();
+        sphere(a,0,1.0,0,.42,alienMat,.72,1.05,.58);
+        sphere(a,0,1.9,0,.58,alienMat,.82,1.05,.72);
+        for(const ex of [-.22,.22]) sphere(a,ex,1.96,-.48,.13,dark,1,.8,.5);
+        for(const ex of [-.22,.22]) sphere(a,ex,1.97,-.51,.055,eye,1,.8,.5);
+        for(const side of [-1,1]) {
+          const arm=new THREE.Mesh(new THREE.CylinderGeometry(.11,.14,.95,8),alienMat);
+          arm.position.set(side*.48,1.05,-.02); arm.rotation.z=side*.45; a.add(arm);
+          const leg=new THREE.Mesh(new THREE.CylinderGeometry(.13,.16,.8,8),alienMat);
+          leg.position.set(side*.19,.38,.02); a.add(leg);
+        }
+        a.position.set(x,0,-13.5); a.userData.startX=x; scene.add(a); schoolAliens.push(a);
+      }
+      phase='schoolChase'; schoolChaseStartedAt=performance.now();
+      $('alienText').textContent='👽👽 외계인 두 명이 갑자기 나타나 달려온다!';
+    },3000);
   }
   function startAlienSequence() {
     abductionTriggered=true;
@@ -735,6 +774,41 @@ GAME_HTML = r"""
       if(dinosaurGroup) dinosaurGroup.rotation.y+=dt*.05;
     }
     if(phase==='hatching' && eggGroup) eggGroup.rotation.y+=dt*.3;
+    if(phase==='schoolChase' || phase==='schoolDragged') {
+      const elapsed=(performance.now()-schoolChaseStartedAt)/1000;
+      for(const a of schoolAliens) {
+        const targetX=player.position.x;
+        const targetZ=player.position.z;
+        const dx=targetX-a.position.x, dz=targetZ-a.position.z;
+        const dist=Math.hypot(dx,dz)||1;
+        if(phase==='schoolChase') {
+          a.position.x += dx/dist*dt*5.2;
+          a.position.z += dz/dist*dt*5.2;
+          a.rotation.y=Math.atan2(-dx,-dz);
+        } else {
+          a.position.x=player.position.x+(a.userData.startX<0?-0.8:0.8);
+          a.position.z=player.position.z+1.0;
+        }
+      }
+      if(phase==='schoolChase' && (elapsed>0.6 && schoolAliens.some(a=>a.position.distanceTo(player.position)<1.8))) {
+        phase='schoolDragged'; schoolDragStartedAt=performance.now();
+        $('alienText').textContent='👽 외계인들이 사용자를 붙잡아 끌고 간다!';
+      }
+      if(phase==='schoolDragged') {
+        // Pull the player down the corridor while the aliens stay close on both sides.
+        player.position.z -= dt*2.8;
+        player.position.x += (0-player.position.x)*dt*.8;
+        updateCamera();
+        if(performance.now()-schoolDragStartedAt>1900) {
+          phase='schoolBlackout';
+          $('alienText').textContent=''; setVisible('alienText',false);
+          $('fade').style.transition='opacity 1.2s'; $('fade').style.opacity='1';
+          setVisible('message',true,'flex');
+          $('messageMain').textContent=''; $('messageSub').textContent='';
+          $('message').style.background='#000';
+        }
+      }
+    }
     if(phase==='alien') {
       // Lift the player into the saucer, stop at cabin height, then fly away.
       if(!alienLiftComplete) {
