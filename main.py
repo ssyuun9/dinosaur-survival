@@ -106,9 +106,9 @@ GAME_HTML = r"""
   <div id="eraScreen" class="screen">
     <h1 id="eraTitle">발견할 시대를 선택하세용</h1>
     <div class="eras">
-      <button class="era" data-era="triassic"><span class="footprint">🐾</span><span>트라이아스기</span><small>최초의 공룡 시대</small></button>
       <button class="era" data-era="jurassic"><span class="footprint">🐾</span><span>쥐라기</span><small>거대한 초식 공룡</small></button>
       <button class="era" data-era="cretaceous"><span class="footprint">🐾</span><span>백악기</span><small>다양한 공룡의 시대</small></button>
+      <button class="era" data-era="triassic"><span class="footprint">🐾</span><span>트라이아스기</span><small>최초의 공룡 시대</small></button>
     </div>
   </div>
   <div id="hud">
@@ -144,6 +144,7 @@ GAME_HTML = r"""
   let solidMeshes=[];
   let worldGroup, playerGroup, eggGroup, dinosaurGroup, alienGroup, cityGroup;
   let mouseDown=false, lastMouseX=0, lastMouseY=0, moving=false, abductionTriggered=false;
+  let schoolBlackoutAt=0, fallingAvatar=null, fallingStartedAt=0;
   const eras = {
     triassic: {
       label:'트라이아스기', color:0x9ca85a, sky:0xb7c6a0, ground:0x6f824a,
@@ -660,7 +661,7 @@ GAME_HTML = r"""
   }
   let schoolAliens=[], schoolChaseStartedAt=0, schoolDragStartedAt=0;
   function startSchoolAlienWarning() {
-    phase='schoolWarning'; schoolAliens=[];
+    phase='schoolWarning'; schoolBlackoutAt=0; schoolAliens=[];
     setVisible('help',false); setVisible('crosshair',false); setVisible('centerPrompt',false);
     $('alienText').textContent='⚠️ 경고: 학교 안에 외계인이 접근하고 있습니다!';
     setVisible('alienText',true);
@@ -699,6 +700,48 @@ GAME_HTML = r"""
     },3500);
     // The departure transition is handled after the saucer flies away in animate().
   }
+  function buildFallingHuman() {
+    if(fallingAvatar) scene.remove(fallingAvatar);
+    const avatar=new THREE.Group();
+    const skin=mat(0xd9a47d), shirt=mat(0x2e75a8), pants=mat(0x26374b), shoes=mat(0x242424), hair=mat(0x30251f);
+    // Human-shaped third-person avatar: head, neck, torso, articulated arms and legs.
+    const torso=new THREE.Mesh(new THREE.CapsuleGeometry(.28, .58, 4, 8), shirt);
+    torso.position.y=1.12; avatar.add(torso);
+    const neck=new THREE.Mesh(new THREE.CylinderGeometry(.105,.12,.16,10),skin); neck.position.y=1.53; avatar.add(neck);
+    const head=new THREE.Mesh(new THREE.SphereGeometry(.22,16,12),skin); head.position.y=1.78; head.scale.set(.88,1.08,.92); avatar.add(head);
+    const hairCap=new THREE.Mesh(new THREE.SphereGeometry(.225,16,10,0,Math.PI*2,0,Math.PI*.55),hair); hairCap.position.set(0,1.86,-.015); avatar.add(hairCap);
+    const face=new THREE.Mesh(new THREE.BoxGeometry(.15,.045,.025),mat(0x382b25)); face.position.set(0,1.78,-.202); avatar.add(face);
+    const armPivots=[], legPivots=[];
+    for(const side of [-1,1]) {
+      const arm=new THREE.Group(); arm.position.set(side*.36,1.36,0); avatar.add(arm); armPivots.push(arm);
+      const upper=new THREE.Mesh(new THREE.CapsuleGeometry(.09,.34,4,8),shirt); upper.position.y=-.22; arm.add(upper);
+      const fore=new THREE.Mesh(new THREE.CapsuleGeometry(.073,.28,4,8),skin); fore.position.set(0,-.53,-.015); arm.add(fore);
+      const hand=new THREE.Mesh(new THREE.SphereGeometry(.085,10,8),skin); hand.position.set(0,-.72,-.02); arm.add(hand);
+      const leg=new THREE.Group(); leg.position.set(side*.16,.83,0); avatar.add(leg); legPivots.push(leg);
+      const thigh=new THREE.Mesh(new THREE.CapsuleGeometry(.115,.34,4,8),pants); thigh.position.y=-.22; leg.add(thigh);
+      const shin=new THREE.Mesh(new THREE.CapsuleGeometry(.085,.34,4,8),pants); shin.position.set(0,-.55,-.015); leg.add(shin);
+      const shoe=new THREE.Mesh(new THREE.BoxGeometry(.18,.12,.32),shoes); shoe.position.set(0,-.77,-.075); leg.add(shoe);
+    }
+    avatar.userData.armPivots=armPivots; avatar.userData.legPivots=legPivots;
+    avatar.position.set(player.position.x,player.position.y-1.7,player.position.z);
+    avatar.rotation.y=yaw; scene.add(avatar); fallingAvatar=avatar;
+    return avatar;
+  }
+  function beginEraFall() {
+    // Build the selected era first, then place the unchanged human avatar high above it.
+    if(fallingAvatar) { scene.remove(fallingAvatar); fallingAvatar=null; }
+    buildPrehistoric();
+    phase='falling';
+    player.position.set(0,62,18); yaw=Math.PI; pitch=0;
+    buildFallingHuman();
+    setVisible('hud',false); setVisible('help',false); setVisible('crosshair',false);
+    setVisible('eggHint',false); setVisible('infoCard',false); setVisible('nextHint',false);
+    setVisible('centerPrompt',false); setVisible('message',false);
+    fallingStartedAt=performance.now();
+    camera.position.set(0,66,27); camera.lookAt(0,60,18);
+    $('fade').style.transition='opacity 1.1s';
+    $('fade').style.opacity='0';
+  }
   function buildEraScreen() {
     phase='era';
     setVisible('titleScreen',false); setVisible('eraScreen',true,'flex');
@@ -709,12 +752,13 @@ GAME_HTML = r"""
   function chooseEra(era) {
     selectedEra=era;
     setVisible('eraScreen',false);
+    setVisible('message',false);
     renderer.domElement.style.display='block';
-    fadeToBlack(()=> {
-      buildPrehistoric();
-      setVisible('titleScreen',false);
-      setVisible('eraScreen',false);
-    });
+    $('fade').style.transition='opacity .65s'; $('fade').style.opacity='1';
+    setTimeout(()=> {
+      setVisible('titleScreen',false); setVisible('eraScreen',false);
+      beginEraFall();
+    },650);
   }
   function hatchEgg() {
     if(phase!=='egg') return;
@@ -800,7 +844,7 @@ GAME_HTML = r"""
         player.position.x += (0-player.position.x)*dt*.8;
         updateCamera();
         if(performance.now()-schoolDragStartedAt>1900) {
-          phase='schoolBlackout';
+          phase='schoolBlackout'; schoolBlackoutAt=performance.now();
           $('alienText').textContent=''; setVisible('alienText',false);
           $('fade').style.transition='opacity 1.2s'; $('fade').style.opacity='1';
           setVisible('message',true,'flex');
@@ -830,6 +874,32 @@ GAME_HTML = r"""
           phase='alienDeparture';
           setTimeout(()=>fadeToBlack(()=>{setVisible('message',false);buildEraScreen();}),1800);
         }
+      }
+    }
+    if(phase==='schoolBlackout' && schoolBlackoutAt && performance.now()-schoolBlackoutAt>=2000) {
+      schoolBlackoutAt=0;
+      setVisible('message',false);
+      buildEraScreen();
+      $('fade').style.transition='opacity 1.1s'; $('fade').style.opacity='0';
+    }
+    if(phase==='falling' && fallingAvatar) {
+      player.position.y=Math.max(1.7,player.position.y-dt*13.5);
+      fallingAvatar.position.set(player.position.x,player.position.y-1.7,player.position.z);
+      fallingAvatar.rotation.y=yaw;
+      const t=(performance.now()-fallingStartedAt)/1000;
+      fallingAvatar.rotation.z=Math.sin(t*5)*.10;
+      fallingAvatar.rotation.x=.12+Math.sin(t*4)*.07;
+      fallingAvatar.userData.armPivots.forEach((arm,i)=>{ arm.rotation.x=Math.sin(t*7+i*Math.PI)*.65; arm.rotation.z=(i===0?-.18:.18); });
+      fallingAvatar.userData.legPivots.forEach((leg,i)=>{ leg.rotation.x=Math.sin(t*7+i*Math.PI)*.48; });
+      camera.position.set(player.position.x,player.position.y+3.2,player.position.z+8.5);
+      camera.lookAt(fallingAvatar.position.x,fallingAvatar.position.y+1.0,fallingAvatar.position.z);
+      if(player.position.y<=1.7) {
+        player.position.y=1.7;
+        if(fallingAvatar) { scene.remove(fallingAvatar); fallingAvatar=null; }
+        phase='prehistoric'; yaw=0; pitch=0; updateCamera();
+        setVisible('hud',true); setVisible('help',true); setVisible('crosshair',true);
+        setVisible('eggHint',false); setVisible('infoCard',false); setVisible('nextHint',false);
+        health=100; attack=50+Math.random()*20; defense=50+Math.random()*20; updateStats();
       }
     }
     if(renderer && renderer.domElement.style.display!=='none') renderer.render(scene,camera);
