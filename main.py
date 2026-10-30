@@ -5,7 +5,7 @@ st.set_page_config(
     page_title="공룡 생존기",
     page_icon="🦖",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 # Hide Streamlit chrome so the game can use almost the whole viewport.
@@ -17,7 +17,7 @@ st.markdown(
         margin: 0 !important; padding: 0 !important; width: 100% !important;
         max-width: 100% !important; overflow: hidden !important;
       }
-      [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"],
+      [data-testid="stToolbar"], [data-testid="stDecoration"],
       [data-testid="stStatusWidget"], footer { display: none !important; }
       iframe { display: block; border: 0 !important; }
       .block-container { padding: 0 !important; }
