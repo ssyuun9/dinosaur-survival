@@ -22,6 +22,12 @@ st.markdown(
       [data-testid="stToolbar"], [data-testid="stDecoration"],
       [data-testid="stStatusWidget"], footer { display: none !important; }
       iframe { display: block; border: 0 !important; }
+      [data-testid="stIFrame"] { height: 100vh !important; min-height: 100vh !important; }
+      [data-testid="stIFrame"] iframe { height: 100vh !important; min-height: 100vh !important; }
+      [data-testid="stMainBlockContainer"] { padding: 0 !important; max-width: 100% !important; }
+      [data-testid="stSidebar"] { min-width: 245px; }
+      [data-testid="stSidebarCollapsedControl"] { display: flex !important; visibility: visible !important; }
+      [data-testid="stSidebarCollapseButton"] { display: flex !important; visibility: visible !important; }
       .block-container { padding: 0 !important; }
     </style>
     """,
@@ -163,6 +169,10 @@ GAME_HTML = r"""
   let schoolBlackoutAt=0, fallingAvatar=null, fallingStartedAt=0;
   let livingDinos=[];
   let runEnabled=false;
+  let jumpRequested=false;
+  let verticalVelocity=0;
+  let playerGrounded=true;
+  let schoolEncounterStarted=false;
   const eras = {
     triassic: {
       label:'트라이아스기', color:0x9ca85a, sky:0xb7c6a0, ground:0x6f824a,
@@ -354,6 +364,8 @@ GAME_HTML = r"""
   function buildVillage() {
     const g=newWorld(0x687d4d,0xabc4d0);
     abductionTriggered=false;
+    schoolEncounterStarted=false;
+    schoolAliens=[];
     const houseSpots=[];
     for(let i=0;i<14;i++) houseSpots.push({
       x:(i%4-1.5)*17+(Math.random()-.5)*3,
@@ -383,9 +395,7 @@ GAME_HTML = r"""
     box(g,0,1.65,-91.35,3.1,3.3,.18,mat(0x527b8b));
     for(let x=-7;x<=7;x+=4) box(g,x,2.25,-91.25,1.65,1.7,.1,mat(0x8fc1d0));
     box(g,0,4.7,-91.18,9,.65,.12,mat(0xf2edda));
-    // School entrance interaction marker (invisible to the player).
-    const villageSchool=box(g,0,1.2,-87,10,2.8,2,mat(0x000000));
-    villageSchool.material.transparent=true; villageSchool.material.opacity=0; villageSchool.userData.trigger='school'; objects.push(villageSchool);
+    // The school playground encounter starts automatically when the player enters its grounds.
     player.position.set(0,1.7,8); yaw=0; pitch=0; updateCamera();
     phase='village'; setVisible('hud',false); setVisible('help',true); setVisible('crosshair',true);
     // 마을 입구 정면의 불필요한 갈색 네모 문은 표시하지 않음.
@@ -608,12 +618,19 @@ GAME_HTML = r"""
     return false;
   }
   function movePlayer(dt) {
-    if(!['village','city','school','prehistoric','home'].includes(phase)) { $('runBtn').style.display='none'; return; }
-    const canRun=['village','city','school','prehistoric'].includes(phase);
+    if(!['village','city','school','schoolWarning','schoolChase','prehistoric','home'].includes(phase)) { $('runBtn').style.display='none'; return; }
+    const canRun=['village','city','school','schoolWarning','schoolChase','prehistoric'].includes(phase);
     $('runBtn').style.display=canRun ? 'block' : 'none';
     $('runBtn').classList.toggle('active',runEnabled);
     $('runBtn').setAttribute('aria-pressed',runEnabled ? 'true' : 'false');
     $('runBtn').setAttribute('aria-label',runEnabled ? '달리기 끄기' : '달리기 켜기');
+    if(jumpRequested && playerGrounded) { verticalVelocity=7.2; playerGrounded=false; }
+    jumpRequested=false;
+    if(!playerGrounded) {
+      verticalVelocity-=18*dt;
+      player.position.y+=verticalVelocity*dt;
+      if(player.position.y<=1.7) { player.position.y=1.7; verticalVelocity=0; playerGrounded=true; }
+    }
     const forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
     const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
     const dir=new THREE.Vector3();
@@ -635,9 +652,14 @@ GAME_HTML = r"""
       if(phase==='home') {
         player.position.x=THREE.MathUtils.clamp(player.position.x,-11,11);
         player.position.z=THREE.MathUtils.clamp(player.position.z,-9.2,9.3);
-      } else if(phase==='village') {
+      } else if(phase==='village' || phase==='schoolWarning' || phase==='schoolChase') {
         player.position.x=THREE.MathUtils.clamp(player.position.x,-70,70);
         player.position.z=THREE.MathUtils.clamp(player.position.z,-110,18);
+        // Entering the school playground automatically starts the encounter; no Space/E interaction.
+        if(phase==='village' && !schoolEncounterStarted && player.position.z < -78 && Math.abs(player.position.x) < 18) {
+          schoolEncounterStarted=true;
+          startSchoolAlienWarning();
+        }
       } else if(phase==='city') {
         player.position.x=THREE.MathUtils.clamp(player.position.x,-44,44);
         player.position.z=THREE.MathUtils.clamp(player.position.z,-250,20);
@@ -668,7 +690,6 @@ GAME_HTML = r"""
     if(phase==='city' && player.position.distanceTo(new THREE.Vector3(-22,1.7,-218))<10) interactable={userData:{label:'운동장에 들어가기',trigger:'yard'}};
     if(phase==='school' && player.position.z>16) interactable={userData:{label:'운동장으로 나가기',trigger:'yard'}};
     if(phase==='home' && player.position.z>8.1 && Math.abs(player.position.x)<2.5) interactable={userData:{label:'나가기',trigger:'village'}};
-    if(phase==='village' && player.position.z< -79 && player.position.z> -96 && Math.abs(player.position.x)<8) interactable={userData:{label:'학교에 들어가기',trigger:'school'}};
     setVisible('centerPrompt',!!interactable);
     if(interactable) $('interactBtn').textContent=interactable.userData.label||'상호작용';
   }
@@ -676,7 +697,6 @@ GAME_HTML = r"""
     if(!interactable) return;
     const trigger=interactable.userData.trigger;
     if(phase==='home') { buildVillage(); return; }
-    if(phase==='village' && trigger==='school') { buildSchoolInterior(); startSchoolAlienWarning(); return; }
     if(phase==='city' && trigger==='yard') {
       // Entering the school playground triggers the alien abduction sequence.
       fadeToBlack(()=> { startAlienSequence(); });
@@ -690,14 +710,14 @@ GAME_HTML = r"""
   let schoolAliens=[], schoolChaseStartedAt=0, schoolDragStartedAt=0;
   function startSchoolAlienWarning() {
     phase='schoolWarning'; schoolBlackoutAt=0; schoolAliens=[];
-    setVisible('help',false); setVisible('crosshair',false); setVisible('centerPrompt',false);
+    setVisible('help',true); setVisible('crosshair',true); setVisible('centerPrompt',false);
     $('alienText').textContent='⚠️ 경고: 학교 안에 외계인이 접근하고 있습니다!';
     setVisible('alienText',true);
     // The warning remains visible for three seconds before the aliens appear.
     setTimeout(()=> {
       if(phase!=='schoolWarning') return;
       const alienMat=mat(0x35c96b), dark=mat(0x06150e), eye=mat(0xf4ffda);
-      for(const x of [-2.7,2.7]) {
+      for(const x of [-3.2,3.2]) {
         const a=new THREE.Group();
         sphere(a,0,1.0,0,.42,alienMat,.72,1.05,.58);
         sphere(a,0,1.9,0,.58,alienMat,.82,1.05,.72);
@@ -709,7 +729,7 @@ GAME_HTML = r"""
           const leg=new THREE.Mesh(new THREE.CylinderGeometry(.13,.16,.8,8),alienMat);
           leg.position.set(side*.19,.38,.02); a.add(leg);
         }
-        a.position.set(x,0,-13.5); a.userData.startX=x; scene.add(a); schoolAliens.push(a);
+        a.position.set(player.position.x+x,0,player.position.z-9); a.userData.startX=x; scene.add(a); schoolAliens.push(a);
       }
       phase='schoolChase'; schoolChaseStartedAt=performance.now();
       $('alienText').textContent='👽👽 외계인 두 명이 갑자기 나타나 달려온다!';
@@ -833,7 +853,7 @@ GAME_HTML = r"""
     requestAnimationFrame(animate);
     const dt=Math.min(clock.getDelta(),.05);
     if(solidMeshes.length===0 && ['prehistoric','village','city','school','home'].includes(phase)) refreshSolidMeshes();
-    if(phase==='prehistoric' || phase==='village' || phase==='city' || phase==='school' || phase==='home') movePlayer(dt);
+    if(phase==='prehistoric' || phase==='village' || phase==='city' || phase==='school' || phase==='schoolWarning' || phase==='schoolChase' || phase==='home') movePlayer(dt);
     if(phase==='prehistoric') {
       // gentle stat variation and environmental challenge
       if(performance.now()-lastDamage>8000) {
@@ -881,8 +901,8 @@ GAME_HTML = r"""
         const dx=targetX-a.position.x, dz=targetZ-a.position.z;
         const dist=Math.hypot(dx,dz)||1;
         if(phase==='schoolChase') {
-          a.position.x += dx/dist*dt*5.2;
-          a.position.z += dz/dist*dt*5.2;
+          a.position.x += dx/dist*dt*12.8;
+          a.position.z += dz/dist*dt*12.8;
           a.rotation.y=Math.atan2(-dx,-dz);
         } else {
           a.position.x=player.position.x+(a.userData.startX<0?-0.8:0.8);
@@ -981,10 +1001,9 @@ GAME_HTML = r"""
   window.addEventListener('keydown',e=>{
     const k=e.key.toLowerCase(); keys[k]=true;
     if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault();
-    if(k===' ' && phase==='home' && !interactable) {
-      // Space starts movement by requesting mouse lock; it is not required for WASD.
-      renderer.domElement.requestPointerLock?.();
-    } else if(k===' ' && interactable && ['home','village','city','school'].includes(phase)) interact();
+    if(k===' ' && !e.repeat && ['home','village','city','school','schoolWarning','schoolChase','prehistoric'].includes(phase)) {
+      jumpRequested=true;
+    }
     if(k==='e') interact();
     if(k==='escape') document.exitPointerLock?.();
   });
@@ -1051,13 +1070,15 @@ GAME_HTML = r"""
 # 공룡 도감 페이지 (별도 페이지로 통합)
 # ==========================================
 
-# 페이지 선택은 사이드바가 접혀 있어도 항상 보이도록 본문 상단에 표시
-page_choice = st.radio(
-    "페이지 선택",
-    ["게임", "공룡 도감"],
-    horizontal=True,
-    key="main_page_choice",
-)
+# 페이지 선택은 Streamlit 왼쪽 사이드바에 배치한다.
+# 사이드바의 기본 접기/펼치기 화살표를 사용해 게임 화면을 넓게 볼 수 있다.
+with st.sidebar:
+    st.markdown("## 🦖 공룡 생존기")
+    page_choice = st.radio(
+        "페이지 선택",
+        ["게임", "공룡 도감"],
+        key="main_page_choice",
+    )
 
 # ==========================================
 # 2. 공룡 데이터
@@ -1617,7 +1638,7 @@ def show_detail(name, era):
 
 
 if page_choice == "게임":
-    components.html(GAME_HTML, height=1000, scrolling=False)
+    components.html(GAME_HTML, height=900, scrolling=False)
 else:
     if "selected_era" not in st.session_state:
         st.session_state.selected_era = None
