@@ -11,24 +11,95 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Hide Streamlit chrome so the game can use almost the whole viewport.
+# 게임 화면은 브라우저 높이에 맞추고, 불필요한 상단 여백과 페이지 스크롤을 제거한다.
+# Streamlit 기본 사이드바는 유지하되 흰색으로 표시하고 접기/펼치기 버튼을 왼쪽 아래에 둔다.
 st.markdown(
     """
     <style>
-      html, body { margin: 0 !important; padding: 0 !important; }
-      [data-testid="stMain"], [data-testid="stMainBlockContainer"] {
-        margin: 0 !important; padding: 0 !important; max-width: 100% !important;
+      html, body, [data-testid="stAppViewContainer"],
+      [data-testid="stApp"] {
+        margin: 0 !important;
+        padding: 0 !important;
+        min-height: 100vh !important;
+        overflow: hidden !important;
       }
-      [data-testid="stToolbar"], [data-testid="stDecoration"],
-      [data-testid="stStatusWidget"], footer { display: none !important; }
-      iframe { display: block; border: 0 !important; }
-      [data-testid="stIFrame"] { height: 100vh !important; min-height: 100vh !important; }
-      [data-testid="stIFrame"] iframe { height: 100vh !important; min-height: 100vh !important; }
-      [data-testid="stMainBlockContainer"] { padding: 0 !important; max-width: 100% !important; }
-      [data-testid="stSidebar"] { min-width: 245px; }
-      [data-testid="stSidebarCollapsedControl"] { display: flex !important; visibility: visible !important; }
-      [data-testid="stSidebarCollapseButton"] { display: flex !important; visibility: visible !important; }
-      .block-container { padding: 0 !important; }
+
+      [data-testid="stHeader"], [data-testid="stToolbar"],
+      [data-testid="stDecoration"], [data-testid="stStatusWidget"], footer {
+        display: none !important;
+        height: 0 !important;
+      }
+
+      [data-testid="stMain"], [data-testid="stMainBlockContainer"],
+      [data-testid="stAppViewBlockContainer"], .block-container {
+        margin: 0 !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+      }
+
+      [data-testid="stMain"] {
+        height: 100vh !important;
+        overflow: hidden !important;
+      }
+
+      [data-testid="stIFrame"] {
+        display: block !important;
+        height: 100vh !important;
+        min-height: 100vh !important;
+        max-height: 100vh !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+      }
+      [data-testid="stIFrame"] iframe, iframe {
+        display: block !important;
+        width: 100% !important;
+        height: 100vh !important;
+        min-height: 100vh !important;
+        max-height: 100vh !important;
+        border: 0 !important;
+      }
+
+      /* 왼쪽 페이지 선택 영역 */
+      [data-testid="stSidebar"] {
+        min-width: 245px !important;
+        background: #ffffff !important;
+        border-right: 1px solid #e6e6e6 !important;
+      }
+      [data-testid="stSidebar"] > div {
+        background: #ffffff !important;
+      }
+      [data-testid="stSidebar"] * {
+        color: #202124;
+      }
+      [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h2 {
+        color: #202124 !important;
+      }
+
+      /* 기본 접기/펼치기 화살표를 왼쪽 아래에 작게 고정 */
+      [data-testid="stSidebarCollapseButton"],
+      [data-testid="stSidebarCollapsedControl"] {
+        display: flex !important;
+        visibility: visible !important;
+        position: fixed !important;
+        left: 12px !important;
+        bottom: 12px !important;
+        top: auto !important;
+        z-index: 1000000 !important;
+        width: 34px !important;
+        height: 34px !important;
+        min-width: 34px !important;
+        min-height: 34px !important;
+        border-radius: 9px !important;
+        background: #f1f3f4 !important;
+        box-shadow: 0 1px 5px #0002 !important;
+      }
+      [data-testid="stSidebarCollapseButton"] svg,
+      [data-testid="stSidebarCollapsedControl"] svg {
+        width: 16px !important;
+        height: 16px !important;
+      }
     </style>
     """,
     unsafe_allow_html=True,
@@ -1638,7 +1709,7 @@ def show_detail(name, era):
 
 
 if page_choice == "게임":
-    components.html(GAME_HTML, height=900, scrolling=False)
+    components.html(GAME_HTML, height=1000, scrolling=False)
 else:
     if "selected_era" not in st.session_state:
         st.session_state.selected_era = None
