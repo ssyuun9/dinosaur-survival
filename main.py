@@ -15,10 +15,9 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-      html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"],
-      [data-testid="stMainBlockContainer"] {
-        margin: 0 !important; padding: 0 !important; width: 100% !important;
-        max-width: 100% !important; overflow: hidden !important;
+      html, body { margin: 0 !important; padding: 0 !important; }
+      [data-testid="stMain"], [data-testid="stMainBlockContainer"] {
+        margin: 0 !important; padding: 0 !important; max-width: 100% !important;
       }
       [data-testid="stToolbar"], [data-testid="stDecoration"],
       [data-testid="stStatusWidget"], footer { display: none !important; }
@@ -76,7 +75,7 @@ GAME_HTML = r"""
   #healthFill { background:#ff5964; } #attackFill { background:#ffad42; } #defenseFill { background:#53c8ff; }
   #help { display:none; position:absolute; bottom:14px; left:50%; transform:translateX(-50%); width:max-content; max-width:92%;
     padding:9px 13px; border-radius:12px; background:#07120dc9; border:1px solid #ffffff35; font-size:13px; }
-  #centerPrompt { position:absolute; left:50%; bottom:70px; transform:translateX(-50%); display:none; }
+  #centerPrompt { position:absolute; left:50%; bottom:132px; transform:translateX(-50%); display:none; z-index:8; }
   #crosshair { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); color:#fff; opacity:.85; display:none;
     text-shadow:0 1px 5px #000; font-size:22px; pointer-events:none; }
   #infoCard { display:none; position:absolute; right:20px; top:50%; transform:translateY(-50%); width:min(310px,86vw);
@@ -93,6 +92,19 @@ GAME_HTML = r"""
     text-shadow:0 2px 12px #000; background:#001b19a8; border-radius:14px; padding:14px 22px; }
   #mobileControls { display:none; position:absolute; left:12px; bottom:55px; gap:10px; }
   .controlBtn { width:48px;height:48px;border-radius:14px;border:1px solid #fff8;background:#13271dbd;color:white;font-size:19px; }
+  #runBtn {
+    display:none; position:fixed; right:22px; bottom:24px; z-index:99999;
+    width:68px; height:68px; border-radius:50%; border:2px solid #ffffffb8;
+    background:#173a27ef; color:#fff; font-size:27px; font-weight:900;
+    box-shadow:0 4px 14px #0008; cursor:pointer; pointer-events:auto;
+    touch-action:manipulation; user-select:none; -webkit-user-select:none;
+  }
+  #runBtn.active { background:#79a83b; border-color:#e4ffc0; box-shadow:0 0 0 4px #d7ff8a55,0 4px 14px #0008; }
+  #runBtn small { display:block; font-size:11px; line-height:1; margin-top:2px; }
+  @media (max-width:700px) {
+    #runBtn { right:16px; bottom:22px; width:62px; height:62px; }
+    #centerPrompt { bottom:118px; }
+  }
   @media (pointer:coarse) { #mobileControls { display:flex; flex-wrap:wrap; width:165px; } #help { bottom:8px; } }
 </style>
 </head>
@@ -127,6 +139,7 @@ GAME_HTML = r"""
   <div id="nextHint"><button id="nextBtn" class="bigButton">다음으로 ➜</button></div>
   <div id="message"><div id="messageMain">시간 이동 중...</div><p id="messageSub"></p></div>
   <div id="alienText">🛸 초록빛이 몸을 감싼다...</div>
+  <button id="runBtn" type="button" aria-label="달리기 켜기">🏃<small>달리기</small></button>
   <div id="mobileControls">
     <button class="controlBtn" data-key="w">▲</button>
     <button class="controlBtn" data-key="a">◀</button>
@@ -149,6 +162,7 @@ GAME_HTML = r"""
   let mouseDown=false, lastMouseX=0, lastMouseY=0, moving=false, abductionTriggered=false;
   let schoolBlackoutAt=0, fallingAvatar=null, fallingStartedAt=0;
   let livingDinos=[];
+  let runEnabled=false;
   const eras = {
     triassic: {
       label:'트라이아스기', color:0x9ca85a, sky:0xb7c6a0, ground:0x6f824a,
@@ -374,7 +388,7 @@ GAME_HTML = r"""
     villageSchool.material.transparent=true; villageSchool.material.opacity=0; villageSchool.userData.trigger='school'; objects.push(villageSchool);
     player.position.set(0,1.7,8); yaw=0; pitch=0; updateCamera();
     phase='village'; setVisible('hud',false); setVisible('help',true); setVisible('crosshair',true);
-    addDoor(g,0,2,0,'마을로 나가기');
+    // 마을 입구 정면의 불필요한 갈색 네모 문은 표시하지 않음.
   }
   function buildCity() {
     const g=newWorld(0x777b78,0xa9c0ce); cityGroup=g;
@@ -594,7 +608,12 @@ GAME_HTML = r"""
     return false;
   }
   function movePlayer(dt) {
-    if(!['village','city','school','prehistoric','home'].includes(phase)) return;
+    if(!['village','city','school','prehistoric','home'].includes(phase)) { $('runBtn').style.display='none'; return; }
+    const canRun=['village','city','school','prehistoric'].includes(phase);
+    $('runBtn').style.display=canRun ? 'block' : 'none';
+    $('runBtn').classList.toggle('active',runEnabled);
+    $('runBtn').setAttribute('aria-pressed',runEnabled ? 'true' : 'false');
+    $('runBtn').setAttribute('aria-label',runEnabled ? '달리기 끄기' : '달리기 켜기');
     const forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
     const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
     const dir=new THREE.Vector3();
@@ -605,7 +624,8 @@ GAME_HTML = r"""
     moving=dir.lengthSq()>0;
     if(moving) {
       dir.normalize();
-      const speed=keys.shift?10:player.speed;
+      const outdoor=['village','city','school','prehistoric'].includes(phase);
+      const speed=(outdoor && (keys.shift || runEnabled)) ? 11.5 : player.speed;
       const stepX = dir.x * speed * dt;
       const stepZ = dir.z * speed * dt;
       const nextX = player.position.x + stepX;
@@ -948,6 +968,14 @@ GAME_HTML = r"""
   });
   document.querySelectorAll('.era').forEach(b=>b.addEventListener('click',()=>chooseEra(b.dataset.era)));
   $('interactBtn').addEventListener('click',interact);
+  $('runBtn').addEventListener('click',e=>{
+    e.preventDefault();
+    e.stopPropagation();
+    runEnabled=!runEnabled;
+    $('runBtn').classList.toggle('active',runEnabled);
+    $('runBtn').setAttribute('aria-pressed',runEnabled ? 'true' : 'false');
+    $('runBtn').setAttribute('aria-label',runEnabled ? '달리기 끄기' : '달리기 켜기');
+  });
   $('hatchBtn').addEventListener('click',hatchEgg);
   $('nextBtn').addEventListener('click',enterPrehistoric);
   window.addEventListener('keydown',e=>{
@@ -1023,7 +1051,13 @@ GAME_HTML = r"""
 # 공룡 도감 페이지 (별도 페이지로 통합)
 # ==========================================
 
-page_choice = st.sidebar.radio("페이지 선택", ["게임", "공룡 도감"], key="main_page_choice")
+# 페이지 선택은 사이드바가 접혀 있어도 항상 보이도록 본문 상단에 표시
+page_choice = st.radio(
+    "페이지 선택",
+    ["게임", "공룡 도감"],
+    horizontal=True,
+    key="main_page_choice",
+)
 
 # ==========================================
 # 2. 공룡 데이터
