@@ -210,6 +210,42 @@ GAME_HTML = r"""
   #message p { font-size:18px; font-weight:500; color:#bfe5b4; }
   #alienText { display:none; position:absolute; left:50%; top:16%; transform:translateX(-50%); font-size:clamp(20px,4vw,36px);
     text-shadow:0 2px 12px #000; background:#001b19a8; border-radius:14px; padding:14px 22px; }
+  #combatPanel {
+    display:none; position:absolute; right:104px; bottom:18px; z-index:35;
+    width:min(286px, calc(100vw - 120px)); padding:10px 12px;
+    border:1px solid #c9f5e6a8; border-radius:14px; background:#071b19e8;
+    box-shadow:0 8px 24px #0008; color:#fff; text-align:left;
+  }
+  #combatStatus { min-height:18px; margin:0 0 7px; color:#e0f7ef; font-size:12px; line-height:1.35; }
+  #enemyName { font-size:13px; font-weight:900; margin-bottom:5px; }
+  #enemyHealthTrack { height:8px; overflow:hidden; border-radius:20px; background:#ffffff26; margin-bottom:8px; }
+  #enemyHealthFill { width:0%; height:100%; border-radius:20px; background:linear-gradient(90deg,#ffcc65,#ff6d62); transition:width .2s; }
+  #combatActions { display:flex; gap:7px; }
+  .combatAction {
+    flex:1; min-width:0; border:1px solid #b8eee0; border-radius:10px; padding:8px 7px;
+    background:#17443b; color:#fff; font-weight:800; font-size:12px; cursor:pointer;
+    touch-action:manipulation; user-select:none; -webkit-user-select:none;
+  }
+  .combatAction small { display:block; margin-top:2px; color:#d4f4e8; font-size:10px; font-weight:600; }
+  .combatAction.active { background:#287b69; border-color:#aaffdf; box-shadow:0 0 0 2px #8affd944; }
+  #deathActions { display:none; gap:12px; margin-top:24px; }
+  .resultButton { min-width:112px; border:1px solid #d7f0da; border-radius:14px; padding:12px 24px; color:#102015;
+    background:linear-gradient(135deg,#e6ffb4,#80d65b); font-size:19px; font-weight:900; cursor:pointer; }
+  .resultButton.secondary { color:#fff; background:linear-gradient(135deg,#4b625a,#243a34); }
+  #finalScreen { display:none; position:absolute; inset:0; z-index:45; pointer-events:none;
+    background:linear-gradient(180deg,#06170a36 0%,#06170a08 48%,#06170a28 100%); }
+  #finalTitle { position:absolute; top:15%; left:50%; transform:translateX(-50%); width:92%; margin:0;
+    color:#fff; text-align:center; font-size:clamp(25px,4.2vw,48px); font-weight:1000;
+    text-shadow:0 3px 16px #001b08,0 1px 4px #000; }
+  #finalSub { position:absolute; top:24%; left:50%; transform:translateX(-50%); width:90%; color:#f0ffe7;
+    text-align:center; font-size:clamp(13px,1.8vw,18px); text-shadow:0 2px 8px #000; }
+  #exitBtn { position:absolute; top:67%; left:50%; transform:translate(-50%,-50%); pointer-events:auto;
+    border:2px solid #ffffffb8; border-radius:16px; padding:13px 38px; color:#fff;
+    background:#152c21eF; box-shadow:0 7px 22px #0008; font-size:20px; font-weight:900; cursor:pointer; }
+  #exitNotice { display:none; position:absolute; inset:0; background:#07140f; color:#fff; align-items:center;
+    justify-content:center; flex-direction:column; text-align:center; padding:24px; pointer-events:auto; }
+  #exitNotice h2 { font-size:clamp(24px,4vw,42px); margin:0 0 12px; }
+  #exitNotice p { color:#d7e8dc; font-size:15px; }
   #mobileControls { display:none; position:absolute; left:12px; bottom:55px; gap:10px; }
   .controlBtn { width:48px;height:48px;border-radius:14px;border:1px solid #fff8;background:#13271dbd;color:white;font-size:19px; }
   #runBtn {
@@ -223,6 +259,8 @@ GAME_HTML = r"""
   #runBtn small { display:block; font-size:11px; line-height:1; margin-top:2px; }
   @media (max-width:700px) {
     #runBtn { right:16px; bottom:22px; width:62px; height:62px; }
+    #combatPanel { right:84px; bottom:90px; width:min(270px, calc(100vw - 98px)); padding:8px 9px; }
+    .combatAction { padding:7px 5px; font-size:11px; }
     #centerPrompt { bottom:118px; }
     #help {
       max-width:calc(100vw - 20px);
@@ -268,14 +306,36 @@ GAME_HTML = r"""
     <div class="stat"><div class="statTop"><span>🦷 공격력</span><b id="attackPct">50%</b></div><div class="bar"><div id="attackFill" class="fill"></div></div></div>
     <div class="stat"><div class="statTop"><span>🛡️ 방어력</span><b id="defensePct">50%</b></div><div class="bar"><div id="defenseFill" class="fill"></div></div></div>
   </div>
-  <div id="help">WASD 이동 · 마우스 시점 · Space 상호작용/시작 · Shift 달리기 · Esc 마우스 잠금 해제</div>
+  <div id="help">WASD 이동 · 마우스 시점 · Space 점프 · Shift 달리기 · Q 방어 · F 에너지 파동 · Esc 마우스 잠금 해제</div>
   <div id="crosshair">＋</div>
   <div id="centerPrompt"><button id="interactBtn" class="smallButton">상호작용</button></div>
   <div id="eggHint"><button id="hatchBtn" class="bigButton">🥚 부화하기</button></div>
   <div id="infoCard"><h2 id="dinoName">공룡</h2><p id="dinoFacts"></p></div>
   <div id="nextHint"><button id="nextBtn" class="bigButton">다음으로 ➜</button></div>
-  <div id="message"><div id="messageMain">시간 이동 중...</div><p id="messageSub"></p></div>
+  <div id="message">
+    <div id="messageMain">시간 이동 중...</div>
+    <p id="messageSub"></p>
+    <div id="deathActions">
+      <button id="retryBtn" class="resultButton" type="button">다시?</button>
+      <button id="endBtn" class="resultButton secondary" type="button">끝?</button>
+    </div>
+  </div>
   <div id="alienText">🛸 초록빛이 몸을 감싼다...</div>
+  <div id="combatPanel">
+    <div id="combatStatus">공룡이 가까이 오면 전투가 시작돼요.</div>
+    <div id="enemyName">주변 탐색 중</div>
+    <div id="enemyHealthTrack"><div id="enemyHealthFill"></div></div>
+    <div id="combatActions">
+      <button id="shieldBtn" class="combatAction" type="button">🛡️ 방어<small>Q · 누르고 있기</small></button>
+      <button id="pulseBtn" class="combatAction" type="button">✨ 에너지 파동<small>F · 공격</small></button>
+    </div>
+  </div>
+  <div id="finalScreen">
+    <h1 id="finalTitle">🦖 함께 놀아줘서 고마워!</h1>
+    <p id="finalSub">공룡 친구들이 작별 인사를 하고 있어요.</p>
+    <button id="exitBtn" type="button">나가기</button>
+    <div id="exitNotice"><h2>게임을 종료했습니다.</h2><p>브라우저에서 이 탭을 닫으면 완전히 나갈 수 있어요.</p></div>
+  </div>
   <button id="runBtn" type="button" aria-label="달리기 켜기">🏃<small>달리기</small></button>
   <div id="mobileControls">
     <button class="controlBtn" data-key="w">▲</button>
@@ -304,6 +364,10 @@ GAME_HTML = r"""
   let verticalVelocity=0;
   let playerGrounded=true;
   let schoolEncounterStarted=false;
+  // 선사시대 전투 및 엔딩 장면 상태
+  let combatTarget=null, playerShielding=false, shieldReadyAt=0, pulseReadyAt=0;
+  let combatNotice='공룡이 가까이 오면 전투가 시작돼요.', combatNoticeUntil=0;
+  let shieldVisual=null, pulseEffects=[], celebrationDinos=[];
   const eras = {
     triassic: {
       label:'트라이아스기', color:0x9ca85a, sky:0xb7c6a0, ground:0x6f824a,
@@ -339,6 +403,12 @@ GAME_HTML = r"""
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x9db7a4);
     scene.fog = new THREE.Fog(0x9db7a4, 28, 160);
+    shieldVisual = new THREE.Mesh(
+      new THREE.SphereGeometry(1.25, 18, 14),
+      new THREE.MeshBasicMaterial({color:0x70f5dc, wireframe:true, transparent:true, opacity:.30})
+    );
+    shieldVisual.visible=false;
+    scene.add(shieldVisual);
     camera = new THREE.PerspectiveCamera(74, innerWidth/innerHeight, .1, 800);
     camera.rotation.order='YXZ';
     renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
@@ -657,8 +727,244 @@ GAME_HTML = r"""
     group.userData.spec=spec;
     return group;
   }
+  function getDinoCombatProfile(spec) {
+    // 공룡 종류별 체력·공격력·이동 속도. 큰 포식자일수록 상대하기 어렵다.
+    const profiles = {
+      small:  {hp:58,  power:17, speed:3.25},
+      raptor: {hp:82,  power:25, speed:3.00},
+      long:   {hp:116, power:31, speed:2.05},
+      stego:  {hp:108, power:29, speed:2.15},
+      trike:  {hp:132, power:38, speed:2.30},
+      rex:    {hp:166, power:48, speed:2.75}
+    };
+    const base = profiles[spec.kind] || profiles.small;
+    return {
+      hp:base.hp, maxHp:base.hp, power:base.power, speed:base.speed,
+      nextAttackAt:performance.now()+900+Math.random()*600,
+      windupAt:0, stunnedUntil:0, defeated:false
+    };
+  }
+  function setCombatNotice(message, duration=1700) {
+    combatNotice=message;
+    combatNoticeUntil=performance.now()+duration;
+  }
+  function refreshCombatPanel() {
+    if(phase!=='prehistoric') { setVisible('combatPanel',false); return; }
+    setVisible('combatPanel',true);
+    if(combatTarget && combatTarget.userData.combat && !combatTarget.userData.combat.defeated) {
+      const c=combatTarget.userData.combat;
+      $('enemyName').textContent='🦖 '+combatTarget.userData.spec.name;
+      $('enemyHealthFill').style.width=(Math.max(0,c.hp)/c.maxHp*100)+'%';
+      if(performance.now()>combatNoticeUntil) {
+        const playerPower=attack*.42+defense*.33+health*.25;
+        $('combatStatus').textContent=c.power>playerPower+12
+          ? '⚠️ 강한 상대예요! Q로 공격을 막아보세요.'
+          : '공룡이 다가와요. F로 공격하고 Q로 방어하세요.';
+      } else $('combatStatus').textContent=combatNotice;
+    } else {
+      $('enemyName').textContent='주변 공룡 탐색 중';
+      $('enemyHealthFill').style.width='0%';
+      $('combatStatus').textContent=performance.now()<combatNoticeUntil ? combatNotice : '공룡이 가까이 오면 전투가 시작돼요.';
+    }
+    $('shieldBtn').classList.toggle('active',playerShielding);
+    $('shieldBtn').disabled=performance.now()<shieldReadyAt;
+    $('shieldBtn').style.opacity=$('shieldBtn').disabled?'.58':'1';
+  }
+  function acquireCombatTarget() {
+    if(combatTarget && combatTarget.parent && combatTarget.userData.combat && !combatTarget.userData.combat.defeated) return;
+    combatTarget=null;
+    let nearest=21;
+    for(const d of livingDinos) {
+      const c=d.userData.combat;
+      if(!d.parent || !c || c.defeated) continue;
+      const dx=d.position.x-player.position.x, dz=d.position.z-player.position.z;
+      const dist=Math.hypot(dx,dz);
+      if(dist<nearest) { nearest=dist; combatTarget=d; }
+    }
+    if(combatTarget) setCombatNotice('⚠️ '+combatTarget.userData.spec.name+'이(가) 다가옵니다!',1800);
+  }
+  function addPulseEffect(target) {
+    const flash=new THREE.Mesh(
+      new THREE.SphereGeometry(.72,16,12),
+      new THREE.MeshBasicMaterial({color:0x75fff0,transparent:true,opacity:.78})
+    );
+    flash.position.set(target.position.x,1.5,target.position.z);
+    scene.add(flash);
+    pulseEffects.push({mesh:flash,bornAt:performance.now()});
+  }
+  function updatePulseEffects(now) {
+    pulseEffects=pulseEffects.filter(effect=>{
+      const progress=(now-effect.bornAt)/360;
+      if(progress>=1) {
+        scene.remove(effect.mesh); effect.mesh.geometry.dispose(); effect.mesh.material.dispose();
+        return false;
+      }
+      effect.mesh.scale.setScalar(.7+progress*2.2);
+      effect.mesh.material.opacity=.78*(1-progress);
+      return true;
+    });
+  }
+  function defeatDinosaur(dino) {
+    if(!dino || !dino.userData.combat || dino.userData.combat.defeated) return;
+    dino.userData.combat.defeated=true;
+    dino.visible=false;
+    scene.remove(dino);
+    if(combatTarget===dino) combatTarget=null;
+    health=Math.min(100,health+5);
+    attack=Math.min(100,attack+1.5);
+    updateStats();
+    setCombatNotice('✨ '+dino.userData.spec.name+'이(가) 힘이 빠져 물러났어요! 체력이 조금 회복됐어요.',2300);
+  }
+  function fireEnergyPulse() {
+    if(phase!=='prehistoric') return;
+    const now=performance.now();
+    if(now<pulseReadyAt) { setCombatNotice('에너지 파동을 충전하고 있어요!',650); return; }
+    let target=combatTarget;
+    if(!target || !target.parent || !target.userData.combat || target.userData.combat.defeated) {
+      target=null;
+      let nearest=11;
+      for(const d of livingDinos) {
+        if(!d.parent || !d.userData.combat || d.userData.combat.defeated) continue;
+        const dist=Math.hypot(d.position.x-player.position.x,d.position.z-player.position.z);
+        if(dist<nearest) { nearest=dist; target=d; }
+      }
+      if(target) combatTarget=target;
+    }
+    if(!target) { setCombatNotice('공격할 공룡이 사정거리 안에 없어요.',1000); return; }
+    const distance=Math.hypot(target.position.x-player.position.x,target.position.z-player.position.z);
+    if(distance>12) { setCombatNotice('공룡에게 조금 더 가까이 다가가세요.',1000); return; }
+    pulseReadyAt=now+850;
+    const c=target.userData.combat;
+    const damage=Math.round(19+attack*.42);
+    c.hp=Math.max(0,c.hp-damage);
+    addPulseEffect(target);
+    setCombatNotice('✨ 에너지 파동 적중! '+damage+' 만큼 힘을 약화했어요.',1100);
+    if(c.hp<=0) defeatDinosaur(target);
+    refreshCombatPanel();
+  }
+  function setPlayerShield(active) {
+    playerShielding=!!active && phase==='prehistoric';
+    if($('shieldBtn')) $('shieldBtn').classList.toggle('active',playerShielding);
+    if(shieldVisual) shieldVisual.visible=playerShielding;
+  }
+  function playerDefeated() {
+    if(phase!=='prehistoric') return;
+    phase='playerDown';
+    keys={}; setPlayerShield(false);
+    document.exitPointerLock?.();
+    setVisible('hud',false); setVisible('help',false); setVisible('combatPanel',false);
+    setVisible('crosshair',false); setVisible('centerPrompt',false); setVisible('runBtn',false);
+    setVisible('deathActions',true,'flex');
+    $('message').style.background='linear-gradient(145deg,#101c18f5,#050907f5)';
+    $('messageMain').textContent='🦖 공룡에게 패배했어요';
+    $('messageSub').textContent='다시 도전할까요?';
+    setVisible('message',true,'flex');
+  }
+  function updateCombatEncounter(dt) {
+    if(phase!=='prehistoric') return;
+    acquireCombatTarget();
+    const d=combatTarget;
+    if(!d) { refreshCombatPanel(); return; }
+    const c=d.userData.combat;
+    const dx=player.position.x-d.position.x, dz=player.position.z-d.position.z;
+    const distance=Math.hypot(dx,dz)||.001;
+    const now=performance.now();
+    if(distance>38) {
+      combatTarget=null; setCombatNotice('공룡이 멀리 물러났어요.',1200); refreshCombatPanel(); return;
+    }
+    if(now<c.stunnedUntil) {
+      d.rotation.x=Math.sin(now*.015)*.08;
+      refreshCombatPanel(); return;
+    }
+    d.rotation.y=Math.atan2(-dx,-dz);
+    if(distance>2.75) {
+      const speed=c.speed*(distance<5?0.72:1);
+      d.position.x+=(dx/distance)*speed*dt;
+      d.position.z+=(dz/distance)*speed*dt;
+      c.windupAt=0;
+    } else {
+      if(!c.windupAt && now>=c.nextAttackAt) {
+        c.windupAt=now+820;
+        setCombatNotice('⚠️ '+d.userData.spec.name+'의 공격 준비! Q를 눌러 막으세요.',850);
+      } else if(c.windupAt && now>=c.windupAt) {
+        c.windupAt=0;
+        c.nextAttackAt=now+1250;
+        if(playerShielding && now>=shieldReadyAt) {
+          shieldReadyAt=now+1650;
+          const counterDamage=Math.round(20+attack*.25);
+          c.hp=Math.max(0,c.hp-counterDamage);
+          c.stunnedUntil=now+1050;
+          addPulseEffect(d);
+          setCombatNotice('🛡️ 방어 성공! 에너지 반격으로 '+counterDamage+' 만큼 약화했어요.',1450);
+          if(c.hp<=0) defeatDinosaur(d);
+        } else {
+          const incoming=Math.max(6,Math.round(c.power*(1-defense/190)));
+          health=Math.max(0,health-incoming);
+          updateStats();
+          setCombatNotice('💫 공룡의 공격을 받았어요! Q를 눌러 타이밍을 맞춰보세요.',1250);
+          if(health<=0) playerDefeated();
+        }
+      }
+    }
+    refreshCombatPanel();
+  }
+  function addCheerDinosaur(parent,color,x,z,scale=1) {
+    const g=new THREE.Group(); g.position.set(x,0,z); g.scale.setScalar(scale); parent.add(g);
+    const skin=mat(color), belly=mat(0xd8c99b), eye=mat(0x17231b), iris=mat(0xffffff);
+    sphere(g,0,1.55,0,.9,skin,1.0,1.0,.72);
+    sphere(g,0,2.55,-.52,.63,skin,1.05,1.0,.9);
+    sphere(g,0,2.34,-1.00,.34,belly,1.1,.65,.55);
+    for(const side of [-1,1]) {
+      sphere(g,side*.26,2.66,-1.04,.10,eye);
+      sphere(g,side*.28,2.68,-1.12,.035,iris);
+    }
+    const tail=new THREE.Mesh(new THREE.ConeGeometry(.28,1.65,9),skin);
+    tail.position.set(0,1.28,.95); tail.rotation.x=-Math.PI/2.35; g.add(tail);
+    const legs=[];
+    for(const side of [-1,1]) {
+      const leg=new THREE.Group(); leg.position.set(side*.35,.92,.08); g.add(leg); legs.push(leg);
+      const thigh=new THREE.Mesh(new THREE.CapsuleGeometry(.16,.52,4,8),skin); thigh.position.y=-.28; leg.add(thigh);
+      const foot=new THREE.Mesh(new THREE.BoxGeometry(.32,.16,.45),skin); foot.position.set(0,-.58,-.08); leg.add(foot);
+    }
+    const arms=[];
+    for(const side of [-1,1]) {
+      const arm=new THREE.Group(); arm.position.set(side*.62,2.0,-.22); g.add(arm); arms.push(arm);
+      const upper=new THREE.Mesh(new THREE.CapsuleGeometry(.105,.42,4,8),skin); upper.position.y=.28; arm.add(upper);
+      const hand=new THREE.Mesh(new THREE.SphereGeometry(.14,10,8),skin); hand.position.set(0,.58,-.02); arm.add(hand);
+    }
+    g.userData.waveArms=arms; g.userData.waveLegs=legs; g.userData.wavePhase=Math.random()*Math.PI*2;
+    return g;
+  }
+  function buildCelebrationScene() {
+    setVisible('message',false); setVisible('deathActions',false);
+    setVisible('hud',false); setVisible('help',false); setVisible('combatPanel',false);
+    setVisible('crosshair',false); setVisible('runBtn',false); setVisible('mobileControls',false);
+    setVisible('alienText',false); setVisible('centerPrompt',false);
+    if(fallingAvatar) { scene.remove(fallingAvatar); fallingAvatar=null; }
+    if(shieldVisual) shieldVisual.visible=false;
+    combatTarget=null; playerShielding=false; celebrationDinos=[];
+    const g=newWorld(0x5d9148,0x8ec8ee);
+    box(g,0,.08,0,48,.16,22,mat(0x77a84e));
+    for(let i=0;i<12;i++) {
+      const x=(i-5.5)*6.5;
+      if(Math.abs(x)>12) addTree(g,x,-9,.7+(i%3)*.12,i%2===0);
+    }
+    celebrationDinos.push(addCheerDinosaur(g,0x73a84b,-5.1,0,1.15));
+    celebrationDinos.push(addCheerDinosaur(g,0x4b9b84,0, -1.1,1.32));
+    celebrationDinos.push(addCheerDinosaur(g,0xd18b4f,5.1,0,1.15));
+    player.position.set(0,1.7,20); yaw=0; pitch=0;
+    camera.position.set(0,7.2,23); camera.lookAt(0,2.1,-.2);
+    phase='ending';
+    setVisible('finalScreen',true,'block');
+    $('exitNotice').style.display='none';
+    $('finalTitle').style.display='block'; $('finalSub').style.display='block'; $('exitBtn').style.display='block';
+    renderer.domElement.style.display='block';
+  }
+
   function buildPrehistoric() {
-    livingDinos=[];
+    livingDinos=[]; combatTarget=null; playerShielding=false; shieldReadyAt=0; pulseReadyAt=0;
+    if(shieldVisual) shieldVisual.visible=false;
+    setVisible('combatPanel',false); setVisible('finalScreen',false); setVisible('deathActions',false);
     const era=eras[selectedEra], g=newWorld(era.ground,era.sky); scene.fog=new THREE.Fog(era.sky,42,230);
     // varied terrain with meadow patches, water river and sea
     for(let i=0;i<120;i++) {
@@ -676,10 +982,14 @@ GAME_HTML = r"""
     livingDinos=[];
     for(let i=0;i<20;i++) {
       const spec=era.dinos[Math.floor(Math.random()*era.dinos.length)];
-      const startX=(Math.random()-.5)*115, startZ=-25-Math.random()*135;
-      const d=addDinosaur(g,spec,startX,startZ,.55+Math.random()*.6);
+      // 처음 몇 마리는 착지 지점에서 멀지 않은 곳에 배치해 전투를 바로 경험할 수 있게 한다.
+      const startX=i===0 ? (Math.random()-.5)*7 : (i<5 ? (Math.random()-.5)*34 : (Math.random()-.5)*115);
+      const startZ=i===0 ? -6-Math.random()*7 : (i<5 ? -4-Math.random()*23 : -25-Math.random()*135);
+      const scale=.55+Math.random()*.6;
+      const d=addDinosaur(g,spec,startX,startZ,scale);
       d.rotation.y=Math.random()*Math.PI*2;
       d.userData.wildAI={homeX:startX,homeZ:startZ,targetX:startX+(Math.random()-.5)*22,targetZ:startZ+(Math.random()-.5)*22,wait:Math.random()*4,grazing:false,phase:Math.random()*6.28};
+      d.userData.combat=getDinoCombatProfile(spec);
       livingDinos.push(d);
       dinosaurGroup=dinosaurGroup||new THREE.Group();
     }
@@ -989,14 +1299,17 @@ GAME_HTML = r"""
       // gentle stat variation and environmental challenge
       if(performance.now()-lastDamage>8000) {
         lastDamage=performance.now();
-        if(Math.random()<.18) health=Math.max(20,health-2);
-        attack=THREE.MathUtils.clamp(attack+(Math.random()-.48)*1.4,25,100);
-        defense=THREE.MathUtils.clamp(defense+(Math.random()-.52)*1.1,25,100);
+        attack=THREE.MathUtils.clamp(attack+(Math.random()-.48)*1.0,25,100);
+        defense=THREE.MathUtils.clamp(defense+(Math.random()-.52)*.8,25,100);
         updateStats();
       }
       // Wild dinosaurs roam independently, pause to graze/drink, then choose a new destination.
+      acquireCombatTarget();
       for(const d of livingDinos) {
         const ai=d.userData.wildAI; if(!ai) continue;
+        if(d===combatTarget) { ai.phase+=dt; continue; }
+        const aiCombat=d.userData.combat;
+        if(aiCombat && aiCombat.defeated) continue;
         ai.phase+=dt; ai.wait-=dt;
         if(ai.wait<=0) {
           if(!ai.grazing && d.userData.spec.diet==='초식' && Math.random()<.58) {
@@ -1022,6 +1335,7 @@ GAME_HTML = r"""
           d.rotation.x=Math.sin(ai.phase*4)*.045;
         }
       }
+      updateCombatEncounter(dt);
     }
     if(phase==='hatching' && eggGroup) eggGroup.rotation.y+=dt*.3;
     if(phase==='schoolChase' || phase==='schoolDragged') {
@@ -1088,6 +1402,25 @@ GAME_HTML = r"""
       buildEraScreen();
       $('fade').style.transition='opacity 1.1s'; $('fade').style.opacity='0';
     }
+    if(phase==='prehistoric' && shieldVisual) {
+      shieldVisual.visible=playerShielding;
+      if(playerShielding) shieldVisual.position.set(player.position.x,player.position.y,player.position.z);
+    } else if(shieldVisual) shieldVisual.visible=false;
+    updatePulseEffects(performance.now());
+    if(phase==='ending') {
+      const t=performance.now()/1000;
+      celebrationDinos.forEach((d,i)=>{
+        const phaseOffset=d.userData.wavePhase||0;
+        d.userData.waveArms.forEach((arm,j)=>{
+          const side=j===0?-1:1;
+          arm.rotation.z=side*(.42+Math.sin(t*5.2+phaseOffset+j)*.52);
+          arm.rotation.x=Math.sin(t*4.4+phaseOffset+j)*.28;
+        });
+        d.userData.waveLegs.forEach((leg,j)=>{ leg.rotation.x=Math.sin(t*2.8+phaseOffset+j*Math.PI)*.045; });
+        d.rotation.y=Math.sin(t*1.5+i)*.06;
+        d.position.y=Math.sin(t*3.2+phaseOffset)*.08;
+      });
+    }
     if(phase==='falling' && fallingAvatar) {
       player.position.y=Math.max(1.7,player.position.y-dt*13.5);
       fallingAvatar.position.set(player.position.x,player.position.y-1.7,player.position.z);
@@ -1106,6 +1439,11 @@ GAME_HTML = r"""
         setVisible('hud',true); setVisible('help',true); setVisible('crosshair',true);
         setVisible('eggHint',false); setVisible('infoCard',false); setVisible('nextHint',false);
         health=100; attack=50+Math.random()*20; defense=50+Math.random()*20; updateStats();
+        combatTarget=null; playerShielding=false; shieldReadyAt=0; pulseReadyAt=0;
+        setVisible('combatPanel',true);
+        $('help').textContent='WASD 이동 · 마우스 시점 · Space 점프 · Shift 달리기 · Q 방어 · F 에너지 파동';
+        setCombatNotice('공룡이 가까이 오면 전투가 시작돼요.',2600);
+        refreshCombatPanel();
       }
     }
     if(renderer && renderer.domElement.style.display!=='none') renderer.render(scene,camera);
@@ -1129,16 +1467,45 @@ GAME_HTML = r"""
   });
   $('hatchBtn').addEventListener('click',hatchEgg);
   $('nextBtn').addEventListener('click',enterPrehistoric);
+  $('pulseBtn').addEventListener('click',fireEnergyPulse);
+  $('shieldBtn').addEventListener('pointerdown',e=>{ e.preventDefault(); setPlayerShield(true); });
+  ['pointerup','pointercancel','pointerleave'].forEach(type=>
+    $('shieldBtn').addEventListener(type,()=>setPlayerShield(false))
+  );
+  $('retryBtn').addEventListener('click',()=>{
+    if(phase!=='playerDown') return;
+    setVisible('deathActions',false); setVisible('message',false);
+    health=100; attack=50+Math.random()*20; defense=50+Math.random()*20; updateStats();
+    $('fade').style.transition='opacity .45s'; $('fade').style.opacity='1';
+    setTimeout(()=>beginEraFall(),450);
+  });
+  $('endBtn').addEventListener('click',()=>{
+    if(phase!=='playerDown') return;
+    buildCelebrationScene();
+  });
+  $('exitBtn').addEventListener('click',()=>{
+    phase='exited';
+    renderer.domElement.style.display='none';
+    $('finalTitle').style.display='none'; $('finalSub').style.display='none'; $('exitBtn').style.display='none';
+    $('exitNotice').style.display='flex';
+    // 브라우저 보안 정책상 스크립트가 사용자가 직접 연 탭이 아닌 탭을 닫지 못할 수 있다.
+    try { window.close(); } catch(_) {}
+  });
   window.addEventListener('keydown',e=>{
     const k=e.key.toLowerCase(); keys[k]=true;
     if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault();
     if(k===' ' && !e.repeat && ['home','village','city','school','schoolWarning','schoolChase','prehistoric'].includes(phase)) {
       jumpRequested=true;
     }
+    if(k==='q' && phase==='prehistoric') setPlayerShield(true);
+    if(k==='f' && !e.repeat && phase==='prehistoric') fireEnergyPulse();
     if(k==='e') interact();
     if(k==='escape') document.exitPointerLock?.();
   });
-  window.addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+  window.addEventListener('keyup',e=>{
+    const k=e.key.toLowerCase(); keys[k]=false;
+    if(k==='q') setPlayerShield(false);
+  });
   function rendererPointerSetup() {
     // Canvas click locks the pointer for FPS look. Escape releases it.
     const canvas=renderer.domElement;
