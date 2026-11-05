@@ -24,26 +24,30 @@ st.markdown(
         overflow: hidden !important;
       }
 
-      /* 헤더 전체를 display:none 처리하면 사이드바를 접었을 때
-         다시 펼치는 버튼까지 함께 사라질 수 있으므로 헤더는 남겨 둔다. */
+      /* 헤더 전체를 숨기면 접힌 사이드바의 다시 열기 버튼까지 사라진다.
+         헤더는 투명한 0 높이로 남겨 두고, 불필요한 도구 모음만 숨긴다. */
       [data-testid="stHeader"] {
         display: block !important;
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100% !important;
+        visibility: visible !important;
+        position: relative !important;
         height: 0 !important;
         min-height: 0 !important;
+        margin: 0 !important;
         padding: 0 !important;
+        overflow: visible !important;
         background: transparent !important;
-        pointer-events: none !important;
         z-index: 1000000 !important;
+        pointer-events: none !important;
       }
-
       [data-testid="stToolbar"], [data-testid="stDecoration"],
       [data-testid="stStatusWidget"], footer {
         display: none !important;
         height: 0 !important;
+      }
+      [data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"] {
+        display: flex !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
       }
 
       [data-testid="stMain"], [data-testid="stMainBlockContainer"],
@@ -95,18 +99,16 @@ st.markdown(
 
       /* 기본 접기/펼치기 화살표를 왼쪽 아래에 작게 고정 */
       [data-testid="stSidebarCollapseButton"],
-      [data-testid="stSidebarCollapsedControl"],
-      [data-testid="collapsedControl"] {
+      [data-testid="stSidebarCollapsedControl"] {
         display: flex !important;
         visibility: visible !important;
-        opacity: 1 !important;
-        pointer-events: auto !important;
         position: fixed !important;
         left: 12px !important;
         bottom: 12px !important;
         top: auto !important;
-        right: auto !important;
-        z-index: 2147483000 !important;
+        z-index: 2147483647 !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
         width: 34px !important;
         height: 34px !important;
         min-width: 34px !important;
@@ -115,21 +117,8 @@ st.markdown(
         background: #f1f3f4 !important;
         box-shadow: 0 1px 5px #0002 !important;
       }
-      [data-testid="stSidebarCollapseButton"] button,
-      [data-testid="stSidebarCollapsedControl"] button,
-      [data-testid="collapsedControl"] button {
-        display: flex !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        pointer-events: auto !important;
-        width: 34px !important;
-        height: 34px !important;
-        align-items: center !important;
-        justify-content: center !important;
-      }
       [data-testid="stSidebarCollapseButton"] svg,
-      [data-testid="stSidebarCollapsedControl"] svg,
-      [data-testid="collapsedControl"] svg {
+      [data-testid="stSidebarCollapsedControl"] svg {
         width: 16px !important;
         height: 16px !important;
       }
