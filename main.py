@@ -67,20 +67,40 @@ st.markdown(
         border: 0 !important;
       }
 
-      /* 왼쪽 페이지 선택 영역 */
+      /* 왼쪽 페이지 선택 사이드바: 항상 읽기 쉬운 흰색 패널로 표시 */
       [data-testid="stSidebar"] {
-        min-width: 245px !important;
+        display: block !important;
+        visibility: visible !important;
+        width: 260px !important;
+        min-width: 260px !important;
         background: #ffffff !important;
         border-right: 1px solid #e6e6e6 !important;
       }
       [data-testid="stSidebar"] > div {
         background: #ffffff !important;
       }
+      [data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+        background: #ffffff !important;
+        height: 100dvh !important;
+        overflow-y: auto !important;
+        padding-top: 14px !important;
+      }
       [data-testid="stSidebar"] * {
         color: #202124;
       }
-      [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h2 {
+      [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h2,
+      [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3 {
         color: #202124 !important;
+      }
+      [data-testid="stSidebar"] [role="radiogroup"] {
+        gap: 9px !important;
+      }
+      [data-testid="stSidebar"] [role="radiogroup"] label {
+        background: #f7f9fb !important;
+        border: 1px solid #e2e6ea !important;
+        border-radius: 11px !important;
+        padding: 10px 12px !important;
+        margin: 0 !important;
       }
 
       /* 기본 접기/펼치기 화살표를 왼쪽 아래에 작게 고정 */
@@ -1185,10 +1205,16 @@ GAME_HTML = r"""
 # 사이드바의 기본 접기/펼치기 화살표를 사용해 게임 화면을 넓게 볼 수 있다.
 with st.sidebar:
     st.markdown("## 🦖 공룡 생존기")
+    st.markdown("### 페이지 이동")
+    page_options = ["🎮 게임 페이지", "📚 공룡 도감 페이지"]
+    # 이전 버전의 선택값이 남아 있어도 새 페이지 선택기가 정상 표시되도록 정리
+    if st.session_state.get("main_page_choice") not in page_options:
+        st.session_state.pop("main_page_choice", None)
     page_choice = st.radio(
-        "페이지 선택",
-        ["게임", "공룡 도감"],
+        "이동할 페이지를 선택하세요",
+        page_options,
         key="main_page_choice",
+        label_visibility="collapsed",
     )
 
 # ==========================================
@@ -1748,7 +1774,7 @@ def show_detail(name, era):
 
 
 
-if page_choice == "게임":
+if page_choice == "🎮 게임 페이지":
     components.html(GAME_HTML, height=1000, scrolling=False)
 else:
     if "selected_era" not in st.session_state:
