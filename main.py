@@ -20,7 +20,9 @@ st.markdown(
       [data-testid="stApp"] {
         margin: 0 !important;
         padding: 0 !important;
-        min-height: 100vh !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        min-height: 100dvh !important;
         overflow: hidden !important;
       }
 
@@ -40,14 +42,17 @@ st.markdown(
 
       [data-testid="stMain"] {
         height: 100vh !important;
+        height: 100dvh !important;
+        min-height: 0 !important;
         overflow: hidden !important;
       }
 
       [data-testid="stIFrame"] {
         display: block !important;
         height: 100vh !important;
-        min-height: 100vh !important;
-        max-height: 100vh !important;
+        height: 100dvh !important;
+        min-height: 0 !important;
+        max-height: 100dvh !important;
         margin: 0 !important;
         padding: 0 !important;
         overflow: hidden !important;
@@ -56,8 +61,9 @@ st.markdown(
         display: block !important;
         width: 100% !important;
         height: 100vh !important;
-        min-height: 100vh !important;
-        max-height: 100vh !important;
+        height: 100dvh !important;
+        min-height: 0 !important;
+        max-height: 100dvh !important;
         border: 0 !important;
       }
 
@@ -150,8 +156,25 @@ GAME_HTML = r"""
   .bar { height:9px; border-radius:20px; overflow:hidden; background:#ffffff22; }
   .fill { height:100%; width:100%; border-radius:20px; transition:width .35s; }
   #healthFill { background:#ff5964; } #attackFill { background:#ffad42; } #defenseFill { background:#53c8ff; }
-  #help { display:none; position:absolute; bottom:14px; left:50%; transform:translateX(-50%); width:max-content; max-width:92%;
-    padding:9px 13px; border-radius:12px; background:#07120dc9; border:1px solid #ffffff35; font-size:13px; }
+  /* 조종방법 안내는 화면 크기에 맞춰 줄바꿈하고 하단 안전 여백을 확보한다. */
+  #help {
+    display:none;
+    position:absolute;
+    left:50%;
+    bottom:max(12px, env(safe-area-inset-bottom, 0px));
+    transform:translateX(-50%);
+    width:fit-content;
+    max-width:min(94vw, 820px);
+    padding:clamp(6px, 1.1vh, 9px) clamp(9px, 1.5vw, 13px);
+    border-radius:12px;
+    background:#07120de8;
+    border:1px solid #ffffff45;
+    font-size:clamp(10px, 1.35vh, 13px);
+    line-height:1.35;
+    text-align:center;
+    overflow-wrap:anywhere;
+    z-index:30;
+  }
   #centerPrompt { position:absolute; left:50%; bottom:132px; transform:translateX(-50%); display:none; z-index:8; }
   #crosshair { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); color:#fff; opacity:.85; display:none;
     text-shadow:0 1px 5px #000; font-size:22px; pointer-events:none; }
@@ -181,8 +204,25 @@ GAME_HTML = r"""
   @media (max-width:700px) {
     #runBtn { right:16px; bottom:22px; width:62px; height:62px; }
     #centerPrompt { bottom:118px; }
+    #help {
+      max-width:calc(100vw - 20px);
+      font-size:clamp(10px, 1.5vh, 12px);
+    }
   }
-  @media (pointer:coarse) { #mobileControls { display:flex; flex-wrap:wrap; width:165px; } #help { bottom:8px; } }
+  @media (max-height:620px) {
+    #help {
+      bottom:max(6px, env(safe-area-inset-bottom, 0px));
+      padding:5px 8px;
+      font-size:10px;
+      line-height:1.2;
+    }
+    #mobileControls { bottom:48px; }
+    #runBtn { bottom:12px; width:56px; height:56px; }
+  }
+  @media (pointer:coarse) {
+    #mobileControls { display:flex; flex-wrap:wrap; width:165px; }
+    #help { bottom:max(8px, env(safe-area-inset-bottom, 0px)); }
+  }
 </style>
 </head>
 <body>
