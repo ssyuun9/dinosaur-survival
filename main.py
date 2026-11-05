@@ -24,30 +24,10 @@ st.markdown(
         overflow: hidden !important;
       }
 
-      /* 헤더 전체를 숨기면 접힌 사이드바의 다시 열기 버튼까지 사라진다.
-         헤더는 투명한 0 높이로 남겨 두고, 불필요한 도구 모음만 숨긴다. */
-      [data-testid="stHeader"] {
-        display: block !important;
-        visibility: visible !important;
-        position: relative !important;
-        height: 0 !important;
-        min-height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow: visible !important;
-        background: transparent !important;
-        z-index: 1000000 !important;
-        pointer-events: none !important;
-      }
-      [data-testid="stToolbar"], [data-testid="stDecoration"],
-      [data-testid="stStatusWidget"], footer {
+      [data-testid="stHeader"], [data-testid="stToolbar"],
+      [data-testid="stDecoration"], [data-testid="stStatusWidget"], footer {
         display: none !important;
         height: 0 !important;
-      }
-      [data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"] {
-        display: flex !important;
-        visibility: visible !important;
-        pointer-events: auto !important;
       }
 
       [data-testid="stMain"], [data-testid="stMainBlockContainer"],
@@ -106,9 +86,7 @@ st.markdown(
         left: 12px !important;
         bottom: 12px !important;
         top: auto !important;
-        z-index: 2147483647 !important;
-        opacity: 1 !important;
-        pointer-events: auto !important;
+        z-index: 1000000 !important;
         width: 34px !important;
         height: 34px !important;
         min-width: 34px !important;
