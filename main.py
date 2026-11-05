@@ -1568,21 +1568,7 @@ GAME_HTML = r"""
 # 공룡 도감 페이지 (별도 페이지로 통합)
 # ==========================================
 
-# 페이지 선택은 Streamlit 왼쪽 사이드바에 배치한다.
-# 사이드바의 기본 접기/펼치기 화살표를 사용해 게임 화면을 넓게 볼 수 있다.
-with st.sidebar:
-    st.markdown("## 🦖 공룡 생존기")
-    st.markdown("### 페이지 이동")
-    page_options = ["🎮 게임 페이지", "📚 공룡 도감 페이지"]
-    # 이전 버전의 선택값이 남아 있어도 새 페이지 선택기가 정상 표시되도록 정리
-    if st.session_state.get("main_page_choice") not in page_options:
-        st.session_state.pop("main_page_choice", None)
-    page_choice = st.radio(
-        "이동할 페이지를 선택하세요",
-        page_options,
-        key="main_page_choice",
-        label_visibility="collapsed",
-    )
+# 페이지 이동은 파일 하단의 st.navigation이 기본 사이드바에 표시한다.
 
 # ==========================================
 # 2. 공룡 데이터
@@ -2141,16 +2127,45 @@ def show_detail(name, era):
 
 
 
-if page_choice == "🎮 게임 페이지":
+def render_game_page():
+    """공룡 생존 게임 화면."""
     components.html(GAME_HTML, height=1000, scrolling=False)
-else:
+
+
+def render_dinosaur_dictionary_page():
+    """사용자가 제공한 시대별 공룡 도감 화면."""
     if "selected_era" not in st.session_state:
         st.session_state.selected_era = None
     if "selected_dinosaur" not in st.session_state:
         st.session_state.selected_dinosaur = None
+
     if st.session_state.selected_era is None:
         show_home()
     elif st.session_state.selected_dinosaur is not None:
-        show_detail(st.session_state.selected_dinosaur, st.session_state.selected_era)
+        show_detail(
+            st.session_state.selected_dinosaur,
+            st.session_state.selected_era,
+        )
     else:
         show_era(st.session_state.selected_era)
+
+
+# 공식 멀티페이지 내비게이션을 사용하면 Streamlit이 페이지 선택 메뉴를
+# 왼쪽 사이드바에 직접 표시한다. 별도의 radio로 페이지를 흉내 내지 않는다.
+page = st.navigation(
+    [
+        st.Page(
+            render_game_page,
+            title="게임 페이지",
+            icon="🎮",
+            default=True,
+        ),
+        st.Page(
+            render_dinosaur_dictionary_page,
+            title="공룡 도감 페이지",
+            icon="📚",
+        ),
+    ],
+    position="sidebar",
+)
+page.run()
