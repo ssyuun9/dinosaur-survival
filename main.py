@@ -2286,6 +2286,46 @@ def render_game_page():
 
 def render_dinosaur_dictionary_page():
     """사용자가 제공한 시대별 공룡 도감 화면."""
+    # 게임 페이지에는 전체 화면 고정 CSS를 유지하고,
+    # 도감 페이지에서만 문서와 Streamlit 본문을 세로 스크롤 가능하게 한다.
+    st.markdown(
+        """
+        <div class="dictionary-page-marker"></div>
+        <style>
+          html:has(.dictionary-page-marker),
+          body:has(.dictionary-page-marker) {
+            height: auto !important;
+            min-height: 100vh !important;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
+          }
+
+          body:has(.dictionary-page-marker) [data-testid="stAppViewContainer"],
+          body:has(.dictionary-page-marker) [data-testid="stApp"] {
+            height: auto !important;
+            min-height: 100vh !important;
+            overflow: visible !important;
+          }
+
+          body:has(.dictionary-page-marker) [data-testid="stMain"] {
+            height: auto !important;
+            min-height: 100vh !important;
+            overflow: visible !important;
+          }
+
+          body:has(.dictionary-page-marker) [data-testid="stMainBlockContainer"],
+          body:has(.dictionary-page-marker) [data-testid="stAppViewBlockContainer"],
+          body:has(.dictionary-page-marker) .block-container {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            padding-bottom: 40px !important;
+          }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     if "selected_era" not in st.session_state:
         st.session_state.selected_era = None
     if "selected_dinosaur" not in st.session_state:
