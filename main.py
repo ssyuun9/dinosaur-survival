@@ -384,6 +384,9 @@ GAME_HTML = r"""
   let livingDinos=[];
   // 선사시대 자원 알과 인벤토리
   let resourceEggs=[], inventory={food:0,wood:0,stone:0}, builtHouses=[];
+  // 깨진 자원 알은 2분 후 같은 위치와 같은 보상으로 다시 생성한다.
+  let eggRespawnQueue=[];
+  const EGG_RESPAWN_DELAY=120000;
   let runEnabled=false;
   let jumpRequested=false;
   let verticalVelocity=0;
@@ -488,6 +491,7 @@ GAME_HTML = r"""
     worldGroup=cityGroup=eggGroup=dinosaurGroup=alienGroup=null;
     objects=[]; interactable=null; solidMeshes=[];
     resourceEggs=[];
+    eggRespawnQueue=[];
   }
   function newWorld(color=0x73916a, sky=0xb5c9b2) {
     clearWorld();
@@ -1013,6 +1017,7 @@ GAME_HTML = r"""
     for(let i=0;i<3;i++) sphere(group,Math.cos(i*2.1)*.22,.72+(i%2)*.18,Math.sin(i*2.1)*.22,.055,spots,.8,1,.8);
     group.userData.resourceEgg=true;
     group.userData.eggMesh=egg;
+    group.userData.spawnIndex=index;
     group.userData.reward=['food','wood','stone'][index%3];
     group.userData.rewardCount=group.userData.reward==='food'?2:(group.userData.reward==='wood'?3:2);
     group.userData.label='🥚 자원 알 깨기';
@@ -1032,6 +1037,14 @@ GAME_HTML = r"""
     if(!eggGroupItem || !eggGroupItem.parent) return;
     const reward=eggGroupItem.userData.reward;
     const count=eggGroupItem.userData.rewardCount;
+    // 알이 있던 위치와 종류를 저장해 120초 뒤 같은 자리에 다시 만든다.
+    eggRespawnQueue.push({
+      parent:eggGroupItem.parent,
+      x:eggGroupItem.position.x,
+      z:eggGroupItem.position.z,
+      index:eggGroupItem.userData.spawnIndex||0,
+      respawnAt:performance.now()+EGG_RESPAWN_DELAY
+    });
     const mesh=eggGroupItem.userData.eggMesh;
     if(mesh) {
       mesh.material=mat(0x9b8060);
@@ -1043,9 +1056,30 @@ GAME_HTML = r"""
     resourceEggs=resourceEggs.filter(o=>o!==eggGroupItem);
     eggGroupItem.parent.remove(eggGroupItem);
     updateInventoryUI();
-    setSurvivalStatus(`${labels[reward]} ${count}개를 얻었어요!`);
+    setSurvivalStatus(`${labels[reward]} ${count}개를 얻었어요! 깨진 알은 2분 뒤 다시 나타나요.`);
     interactable=null;
     setVisible('centerPrompt',false);
+  }
+  // 2분이 지난 알을 원래 위치에 다시 생성한다.
+  function updateResourceEggRespawns(now=performance.now()) {
+    if(phase!=='prehistoric' || eggRespawnQueue.length===0) return;
+    let respawned=0;
+    for(let i=eggRespawnQueue.length-1;i>=0;i--) {
+      const item=eggRespawnQueue[i];
+      if(now<item.respawnAt) continue;
+      // 시대가 바뀌어 이전 월드가 사라졌다면 해당 예약은 폐기한다.
+      if(!item.parent || !item.parent.parent) {
+        eggRespawnQueue.splice(i,1);
+        continue;
+      }
+      addResourceEgg(item.parent,item.x,item.z,item.index);
+      eggRespawnQueue.splice(i,1);
+      respawned++;
+    }
+    if(respawned>0) {
+      setSurvivalStatus(`🥚 깨졌던 알 ${respawned}개가 다시 나타났어요!`);
+      checkInteractable();
+    }
   }
   // 플레이어와 가까운 자원 알을 찾는다. 알은 E 키로만 깰 수 있다.
   function findNearbyResourceEgg(maxDistance=3.8) {
@@ -1436,6 +1470,7 @@ GAME_HTML = r"""
   function animate() {
     requestAnimationFrame(animate);
     const dt=Math.min(clock.getDelta(),.05);
+    updateResourceEggRespawns();
     if(solidMeshes.length===0 && ['prehistoric','village','city','school','home'].includes(phase)) refreshSolidMeshes();
     if(phase==='prehistoric' || phase==='village' || phase==='city' || phase==='school' || phase==='schoolWarning' || phase==='schoolChase' || phase==='home') movePlayer(dt);
     if(phase==='prehistoric') {
