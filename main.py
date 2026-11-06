@@ -2286,11 +2286,12 @@ def render_game_page():
 
 def render_dinosaur_dictionary_page():
     """사용자가 제공한 시대별 공룡 도감 화면."""
-    # 게임 페이지에는 전체 화면 고정 CSS를 유지하고,
-    # 도감 페이지에서만 문서와 Streamlit 본문을 세로 스크롤 가능하게 한다.
-    st.markdown(
+    # st.markdown()은 일부 실행 환경에서 <style> 태그를 제거하고
+    # CSS 내용을 일반 글자로 표시할 수 있으므로, st.html()로 스타일을 삽입한다.
+    # 숨겨진 표식이 있을 때만 아래 CSS가 적용되어 게임 페이지에는 영향이 없다.
+    st.html(
         """
-        <div class="dictionary-page-marker"></div>
+        <div class="dictionary-page-marker" style="display:none;"></div>
         <style>
           html:has(.dictionary-page-marker),
           body:has(.dictionary-page-marker) {
@@ -2304,12 +2305,14 @@ def render_dinosaur_dictionary_page():
           body:has(.dictionary-page-marker) [data-testid="stApp"] {
             height: auto !important;
             min-height: 100vh !important;
+            max-height: none !important;
             overflow: visible !important;
           }
 
           body:has(.dictionary-page-marker) [data-testid="stMain"] {
             height: auto !important;
             min-height: 100vh !important;
+            max-height: none !important;
             overflow: visible !important;
           }
 
@@ -2318,12 +2321,12 @@ def render_dinosaur_dictionary_page():
           body:has(.dictionary-page-marker) .block-container {
             height: auto !important;
             min-height: 0 !important;
+            max-height: none !important;
             overflow: visible !important;
-            padding-bottom: 40px !important;
+            padding-bottom: 48px !important;
           }
         </style>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     if "selected_era" not in st.session_state:
