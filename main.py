@@ -2293,36 +2293,72 @@ def render_dinosaur_dictionary_page():
         """
         <div class="dictionary-page-marker" style="display:none;"></div>
         <style>
+          /* 도감 페이지에서만 세로 스크롤을 허용하고, 페이지 전체 배경을 어둡게 고정한다. */
           html:has(.dictionary-page-marker),
           body:has(.dictionary-page-marker) {
             height: auto !important;
             min-height: 100vh !important;
+            max-height: none !important;
             overflow-x: hidden !important;
             overflow-y: auto !important;
+            background: #101a17 !important;
+            color: #f3f5ee !important;
           }
 
           body:has(.dictionary-page-marker) [data-testid="stAppViewContainer"],
-          body:has(.dictionary-page-marker) [data-testid="stApp"] {
+          body:has(.dictionary-page-marker) [data-testid="stApp"],
+          body:has(.dictionary-page-marker) [data-testid="stMain"],
+          body:has(.dictionary-page-marker) [data-testid="stMainBlockContainer"],
+          body:has(.dictionary-page-marker) [data-testid="stAppViewBlockContainer"],
+          body:has(.dictionary-page-marker) .block-container,
+          body:has(.dictionary-page-marker) .stApp {
             height: auto !important;
             min-height: 100vh !important;
             max-height: none !important;
-            overflow: visible !important;
+            overflow-x: visible !important;
+            overflow-y: visible !important;
+            background-color: #101a17 !important;
+            color: #f3f5ee !important;
           }
 
-          body:has(.dictionary-page-marker) [data-testid="stMain"] {
-            height: auto !important;
-            min-height: 100vh !important;
-            max-height: none !important;
-            overflow: visible !important;
+          /* 각 본문 영역에도 배경색을 직접 적용해 스크롤 아래쪽이 흰색으로 바뀌지 않게 한다. */
+          body:has(.dictionary-page-marker) [data-testid="stMain"] > div,
+          body:has(.dictionary-page-marker) [data-testid="stMainBlockContainer"] > div,
+          body:has(.dictionary-page-marker) [data-testid="stAppViewBlockContainer"] > div,
+          body:has(.dictionary-page-marker) .block-container > div {
+            background-color: #101a17 !important;
+            color: #f3f5ee !important;
+          }
+
+          /* 도감 내용은 어두운 배경에서 항상 읽을 수 있는 밝은 글자색으로 표시한다. */
+          body:has(.dictionary-page-marker) [data-testid="stMarkdownContainer"],
+          body:has(.dictionary-page-marker) [data-testid="stMarkdownContainer"] p,
+          body:has(.dictionary-page-marker) [data-testid="stMarkdownContainer"] span,
+          body:has(.dictionary-page-marker) [data-testid="stMarkdownContainer"] li,
+          body:has(.dictionary-page-marker) [data-testid="stMarkdownContainer"] h1,
+          body:has(.dictionary-page-marker) [data-testid="stMarkdownContainer"] h2,
+          body:has(.dictionary-page-marker) [data-testid="stMarkdownContainer"] h3,
+          body:has(.dictionary-page-marker) label,
+          body:has(.dictionary-page-marker) [data-testid="stCaptionContainer"],
+          body:has(.dictionary-page-marker) [data-testid="stText"] {
+            color: #f3f5ee !important;
+          }
+
+          body:has(.dictionary-page-marker) a {
+            color: #9edbb5 !important;
+          }
+
+          body:has(.dictionary-page-marker) input,
+          body:has(.dictionary-page-marker) textarea,
+          body:has(.dictionary-page-marker) [data-baseweb="select"] > div {
+            background-color: #20332b !important;
+            color: #f3f5ee !important;
+            border-color: #456653 !important;
           }
 
           body:has(.dictionary-page-marker) [data-testid="stMainBlockContainer"],
           body:has(.dictionary-page-marker) [data-testid="stAppViewBlockContainer"],
           body:has(.dictionary-page-marker) .block-container {
-            height: auto !important;
-            min-height: 0 !important;
-            max-height: none !important;
-            overflow: visible !important;
             padding-bottom: 48px !important;
           }
         </style>
