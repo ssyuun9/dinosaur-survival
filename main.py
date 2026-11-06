@@ -384,9 +384,9 @@ GAME_HTML = r"""
   let livingDinos=[];
   // 선사시대 자원 알과 인벤토리
   let resourceEggs=[], inventory={food:0,wood:0,stone:0}, builtHouses=[];
-  // 깨진 자원 알은 2분 후 같은 위치와 같은 보상으로 다시 생성한다.
+  // 깨진 자원 알은 10초 후 같은 위치와 같은 보상으로 다시 생성한다.
   let eggRespawnQueue=[];
-  const EGG_RESPAWN_DELAY=120000;
+  const EGG_RESPAWN_DELAY=10000;
   let runEnabled=false;
   let jumpRequested=false;
   let verticalVelocity=0;
@@ -1037,7 +1037,7 @@ GAME_HTML = r"""
     if(!eggGroupItem || !eggGroupItem.parent) return;
     const reward=eggGroupItem.userData.reward;
     const count=eggGroupItem.userData.rewardCount;
-    // 알이 있던 위치와 종류를 저장해 120초 뒤 같은 자리에 다시 만든다.
+    // 알이 있던 위치와 종류를 저장해 10초 뒤 같은 자리에 다시 만든다.
     eggRespawnQueue.push({
       parent:eggGroupItem.parent,
       x:eggGroupItem.position.x,
@@ -1056,11 +1056,11 @@ GAME_HTML = r"""
     resourceEggs=resourceEggs.filter(o=>o!==eggGroupItem);
     eggGroupItem.parent.remove(eggGroupItem);
     updateInventoryUI();
-    setSurvivalStatus(`${labels[reward]} ${count}개를 얻었어요! 깨진 알은 2분 뒤 다시 나타나요.`);
+    setSurvivalStatus(`${labels[reward]} ${count}개를 얻었어요! 깨진 알은 10초 뒤 다시 나타나요.`);
     interactable=null;
     setVisible('centerPrompt',false);
   }
-  // 2분이 지난 알을 원래 위치에 다시 생성한다.
+  // 10초가 지난 알을 원래 위치에 다시 생성한다.
   function updateResourceEggRespawns(now=performance.now()) {
     if(phase!=='prehistoric' || eggRespawnQueue.length===0) return;
     let respawned=0;
