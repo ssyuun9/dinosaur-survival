@@ -182,7 +182,7 @@ GAME_HTML = r"""
     display:none;
     position:absolute;
     left:50%;
-    bottom:max(12px, env(safe-area-inset-bottom, 0px));
+    bottom:max(42px, calc(env(safe-area-inset-bottom, 0px) + 30px));
     transform:translateX(-50%);
     width:fit-content;
     max-width:min(94vw, 820px);
@@ -283,7 +283,7 @@ GAME_HTML = r"""
   }
   @media (max-height:620px) {
     #help {
-      bottom:max(6px, env(safe-area-inset-bottom, 0px));
+      bottom:max(32px, calc(env(safe-area-inset-bottom, 0px) + 24px));
       padding:5px 8px;
       font-size:10px;
       line-height:1.2;
@@ -293,7 +293,7 @@ GAME_HTML = r"""
   }
   @media (pointer:coarse) {
     #mobileControls { display:flex; flex-wrap:wrap; width:165px; }
-    #help { bottom:max(8px, env(safe-area-inset-bottom, 0px)); }
+    #help { bottom:max(34px, calc(env(safe-area-inset-bottom, 0px) + 24px)); }
   }
 </style>
 </head>
