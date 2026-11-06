@@ -159,6 +159,7 @@ GAME_HTML = r"""
   .smallButton { border:1px solid #d9f5c0; background:#173a27e8; color:white; padding:10px 16px;
     border-radius:10px; font-weight:800; cursor:pointer; }
   .smallButton:hover { background:#2d6a3d; }
+  .smallButton:disabled { opacity:.78; cursor:default; }
   #eraScreen { display:none; background:linear-gradient(180deg,#071b13eF,#0c2717d9),radial-gradient(ellipse at bottom,#5a7f32,#08140e); }
   #eraTitle { font-size:clamp(28px,5vw,54px); margin:0 0 38px; text-shadow:0 4px 18px #000; }
   .eras { display:flex; gap:clamp(12px,3vw,34px); flex-wrap:wrap; justify-content:center; }
@@ -319,7 +320,7 @@ GAME_HTML = r"""
     <div class="stat"><div class="statTop"><span>🦷 공격력</span><b id="attackPct">50%</b></div><div class="bar"><div id="attackFill" class="fill"></div></div></div>
     <div class="stat"><div class="statTop"><span>🛡️ 방어력</span><b id="defensePct">50%</b></div><div class="bar"><div id="defenseFill" class="fill"></div></div></div>
   </div>
-  <div id="help">WASD 이동 · 마우스 시점 · Space 점프 (알 근처에서는 알 깨기) · E 상호작용 · Shift 달리기 · Q 방어 · F 에너지 파동 · Esc 마우스 잠금 해제</div>
+  <div id="help">WASD 이동 · 마우스 시점 · Space 점프 · E 알 깨기/상호작용 · Shift 달리기 · Q 방어 · F 에너지 파동 · Esc 마우스 잠금 해제</div>
   <div id="crosshair">＋</div>
   <div id="centerPrompt"><button id="interactBtn" class="smallButton">상호작용</button></div>
   <div id="eggHint"><button id="hatchBtn" class="bigButton">🥚 부화하기</button></div>
@@ -328,10 +329,9 @@ GAME_HTML = r"""
     <div id="inventoryText">🍖 음식 0개 · 🪵 나무 0개 · 🪨 돌 0개</div>
     <div id="survivalActions">
       <button id="eatBtn" class="survivalAction" type="button">🍎 내가 먹기</button>
-      <button id="feedBtn" class="survivalAction" type="button">🦕 공룡에게 먹이</button>
       <button id="buildBtn" class="survivalAction" type="button">🏠 집 짓기</button>
     </div>
-    <div id="survivalStatus">주변의 알 가까이 가서 스페이스바 또는 E 키를 눌러 깨 보세요!</div>
+    <div id="survivalStatus">주변의 알 가까이 가서 E 키를 눌러 깨 보세요!</div>
   </div>
   <div id="infoCard"><h2 id="dinoName">공룡</h2><p id="dinoFacts"></p></div>
   <div id="nextHint"><button id="nextBtn" class="bigButton">다음으로 ➜</button></div>
@@ -384,7 +384,6 @@ GAME_HTML = r"""
   let livingDinos=[];
   // 선사시대 자원 알과 인벤토리
   let resourceEggs=[], inventory={food:0,wood:0,stone:0}, builtHouses=[];
-  let nearbyDinosaur=null;
   let runEnabled=false;
   let jumpRequested=false;
   let verticalVelocity=0;
@@ -488,7 +487,7 @@ GAME_HTML = r"""
     if(alienGroup) scene.remove(alienGroup);
     worldGroup=cityGroup=eggGroup=dinosaurGroup=alienGroup=null;
     objects=[]; interactable=null; solidMeshes=[];
-    resourceEggs=[]; nearbyDinosaur=null;
+    resourceEggs=[];
   }
   function newWorld(color=0x73916a, sky=0xb5c9b2) {
     clearWorld();
@@ -992,7 +991,6 @@ GAME_HTML = r"""
     $('inventoryText').textContent =
       `🍎 음식 ${inventory.food}개 · 🪵 나무 ${inventory.wood}개 · 🪨 돌 ${inventory.stone}개`;
     $('eatBtn').disabled=inventory.food<=0;
-    $('feedBtn').disabled=inventory.food<=0 || !nearbyDinosaur;
     $('buildBtn').disabled=inventory.wood<8 || inventory.stone<5;
   }
   function setSurvivalStatus(message) {
@@ -1049,15 +1047,18 @@ GAME_HTML = r"""
     interactable=null;
     setVisible('centerPrompt',false);
   }
-  function findNearbyDinosaur() {
-    nearbyDinosaur=null;
-    let best=4.2;
-    for(const d of livingDinos) {
-      if(!d.parent || (d.userData.combat && d.userData.combat.defeated)) continue;
-      const dist=Math.hypot(d.position.x-player.position.x,d.position.z-player.position.z);
-      if(dist<best) { best=dist; nearbyDinosaur=d; }
+  // 플레이어와 가까운 자원 알을 찾는다. 알은 E 키로만 깰 수 있다.
+  function findNearbyResourceEgg(maxDistance=3.8) {
+    let nearestEgg=null;
+    let best=maxDistance;
+    for(const egg of resourceEggs) {
+      if(!egg || !egg.parent) continue;
+      const p=new THREE.Vector3();
+      egg.getWorldPosition(p);
+      const distance=Math.hypot(p.x-player.position.x,p.z-player.position.z);
+      if(distance<best) { best=distance; nearestEgg=egg; }
     }
-    $('feedBtn').disabled=inventory.food<=0 || !nearbyDinosaur;
+    return nearestEgg;
   }
   function eatFood() {
     if(inventory.food<=0) { setSurvivalStatus('먹을 음식이 없어요. 알을 찾아보세요!'); return; }
@@ -1066,20 +1067,6 @@ GAME_HTML = r"""
     health=Math.min(100,health+24);
     updateStats(); updateInventoryUI();
     setSurvivalStatus(`음식을 먹었어요. 체력이 ${Math.round(health-before)} 회복됐어요!`);
-  }
-  function feedDinosaur() {
-    findNearbyDinosaur();
-    if(inventory.food<=0) { setSurvivalStatus('공룡에게 줄 음식이 없어요.'); return; }
-    if(!nearbyDinosaur) { setSurvivalStatus('먹이를 줄 공룡 가까이 이동하세요.'); return; }
-    const d=nearbyDinosaur;
-    inventory.food--;
-    if(d.userData.combat) {
-      d.userData.combat.stunnedUntil=performance.now()+1800;
-      d.userData.combat.hp=Math.max(0,d.userData.combat.hp-8);
-    }
-    d.userData.feedUntil=performance.now()+1800;
-    setSurvivalStatus(`${d.userData.spec.name}에게 먹이를 줬어요!`);
-    updateInventoryUI();
   }
   function buildPlayerHouse() {
     if(inventory.wood<8 || inventory.stone<5) {
@@ -1267,27 +1254,31 @@ GAME_HTML = r"""
       if(dist<nearest) { nearest=dist; interactable=o; }
     }
     if(phase==='prehistoric') {
-      findNearbyDinosaur();
-      if(interactable && interactable.userData.resourceEgg) {
-        interactable.userData.label='🥚 알 깨기 (Space / E)';
-      } else if(!interactable && nearbyDinosaur) {
-        interactable={userData:{label:'🦕 공룡에게 먹이 주기',trigger:'feedDino'}};
+      const nearbyEgg=findNearbyResourceEgg();
+      if(nearbyEgg) {
+        interactable=nearbyEgg;
+        interactable.userData.label='🥚 알 깨기 (E)';
       }
     }
     if(phase==='city' && player.position.distanceTo(new THREE.Vector3(-22,1.7,-218))<10) interactable={userData:{label:'운동장에 들어가기',trigger:'yard'}};
     if(phase==='school' && player.position.z>16) interactable={userData:{label:'운동장으로 나가기',trigger:'yard'}};
     if(phase==='home' && player.position.z>8.1 && Math.abs(player.position.x)<2.5) interactable={userData:{label:'나가기',trigger:'village'}};
     setVisible('centerPrompt',!!interactable);
+    const eggNeedsEKey=phase==='prehistoric' && !!(interactable && interactable.userData.resourceEgg);
+    $('interactBtn').disabled=eggNeedsEKey;
     if(interactable) $('interactBtn').textContent=interactable.userData.label||'상호작용';
     if(phase==='prehistoric') updateInventoryUI();
   }
   function interact() {
+    if(phase==='prehistoric') {
+      const nearbyEgg=findNearbyResourceEgg();
+      if(nearbyEgg) { breakResourceEgg(nearbyEgg); return; }
+    }
     if(!interactable) return;
     const trigger=interactable.userData.trigger;
     if(phase==='prehistoric' && interactable.userData.resourceEgg) {
       breakResourceEgg(interactable); return;
     }
-    if(phase==='prehistoric' && trigger==='feedDino') { feedDinosaur(); return; }
     if(phase==='home') { buildVillage(); return; }
     if(phase==='city' && trigger==='yard') {
       // Entering the school playground triggers the alien abduction sequence.
@@ -1458,10 +1449,6 @@ GAME_HTML = r"""
       // Wild dinosaurs roam independently, pause to graze/drink, then choose a new destination.
       acquireCombatTarget();
       for(const d of livingDinos) {
-        if(d.userData.feedUntil && performance.now()<d.userData.feedUntil) {
-          d.rotation.x=Math.sin(performance.now()*.012)*.09;
-          continue;
-        }
         const ai=d.userData.wildAI; if(!ai) continue;
         if(d===combatTarget) { ai.phase+=dt; continue; }
         const aiCombat=d.userData.combat;
@@ -1598,8 +1585,8 @@ GAME_HTML = r"""
         health=100; attack=50+Math.random()*20; defense=50+Math.random()*20; updateStats();
         combatTarget=null; playerShielding=false; shieldReadyAt=0; pulseReadyAt=0;
         setVisible('combatPanel',true);
-        $('help').textContent='WASD 이동 · 마우스 시점 · Space 점프 (알 근처에서는 알 깨기) · E 상호작용 · Shift 달리기 · Q 방어 · F 에너지 파동';
-        setSurvivalStatus('주변의 알 가까이 가서 스페이스바 또는 E 키를 눌러 깨고 자원을 모아보세요!');
+        $('help').textContent='WASD 이동 · 마우스 시점 · Space 점프 · E 알 깨기/상호작용 · Shift 달리기 · Q 방어 · F 에너지 파동';
+        setSurvivalStatus('주변의 알 가까이 가서 E 키를 눌러 깨고 자원을 모아보세요!');
         setCombatNotice('공룡이 가까이 오면 전투가 시작돼요.',2600);
         refreshCombatPanel();
       }
@@ -1614,7 +1601,11 @@ GAME_HTML = r"""
     setVisible('help',true);
   });
   document.querySelectorAll('.era').forEach(b=>b.addEventListener('click',()=>chooseEra(b.dataset.era)));
-  $('interactBtn').addEventListener('click',interact);
+  $('interactBtn').addEventListener('click',()=> {
+    // 자원 알은 버튼 클릭이 아니라 E 키를 눌렀을 때만 깨진다.
+    if(phase==='prehistoric' && findNearbyResourceEgg()) return;
+    interact();
+  });
   $('runBtn').addEventListener('click',e=>{
     e.preventDefault();
     e.stopPropagation();
@@ -1625,7 +1616,6 @@ GAME_HTML = r"""
   });
   $('hatchBtn').addEventListener('click',hatchEgg);
   $('eatBtn').addEventListener('click',eatFood);
-  $('feedBtn').addEventListener('click',feedDinosaur);
   $('buildBtn').addEventListener('click',buildPlayerHouse);
   $('nextBtn').addEventListener('click',enterPrehistoric);
   $('pulseBtn').addEventListener('click',fireEnergyPulse);
@@ -1656,17 +1646,12 @@ GAME_HTML = r"""
     const k=e.key.toLowerCase(); keys[k]=true;
     if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault();
     if(k===' ' && !e.repeat && ['home','village','city','school','schoolWarning','schoolChase','prehistoric'].includes(phase)) {
-      // 선사시대에서 자원 알 가까이에 있을 때는 스페이스바로 알을 깨고,
-      // 알이 근처에 없을 때는 기존 점프 기능을 그대로 사용한다.
-      if(phase==='prehistoric' && interactable && interactable.userData && interactable.userData.resourceEgg) {
-        breakResourceEgg(interactable);
-      } else {
-        jumpRequested=true;
-      }
+      // 스페이스바는 항상 점프 전용이다.
+      jumpRequested=true;
     }
     if(k==='q' && phase==='prehistoric') setPlayerShield(true);
     if(k==='f' && !e.repeat && phase==='prehistoric') fireEnergyPulse();
-    if(k==='e') interact();
+    if(k==='e' && !e.repeat) interact();
     if(k==='escape') document.exitPointerLock?.();
   });
   window.addEventListener('keyup',e=>{
