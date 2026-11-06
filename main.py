@@ -319,7 +319,7 @@ GAME_HTML = r"""
     <div class="stat"><div class="statTop"><span>🦷 공격력</span><b id="attackPct">50%</b></div><div class="bar"><div id="attackFill" class="fill"></div></div></div>
     <div class="stat"><div class="statTop"><span>🛡️ 방어력</span><b id="defensePct">50%</b></div><div class="bar"><div id="defenseFill" class="fill"></div></div></div>
   </div>
-  <div id="help">WASD 이동 · 마우스 시점 · Space 점프 · Shift 달리기 · E 알 깨기 · Q 방어 · F 에너지 파동 · Esc 마우스 잠금 해제</div>
+  <div id="help">WASD 이동 · 마우스 시점 · Space 점프 (알 근처에서는 알 깨기) · E 상호작용 · Shift 달리기 · Q 방어 · F 에너지 파동 · Esc 마우스 잠금 해제</div>
   <div id="crosshair">＋</div>
   <div id="centerPrompt"><button id="interactBtn" class="smallButton">상호작용</button></div>
   <div id="eggHint"><button id="hatchBtn" class="bigButton">🥚 부화하기</button></div>
@@ -331,7 +331,7 @@ GAME_HTML = r"""
       <button id="feedBtn" class="survivalAction" type="button">🦕 공룡에게 먹이</button>
       <button id="buildBtn" class="survivalAction" type="button">🏠 집 짓기</button>
     </div>
-    <div id="survivalStatus">주변의 알을 찾아 E 키로 깨 보세요!</div>
+    <div id="survivalStatus">주변의 알 가까이 가서 스페이스바 또는 E 키를 눌러 깨 보세요!</div>
   </div>
   <div id="infoCard"><h2 id="dinoName">공룡</h2><p id="dinoFacts"></p></div>
   <div id="nextHint"><button id="nextBtn" class="bigButton">다음으로 ➜</button></div>
@@ -1269,7 +1269,7 @@ GAME_HTML = r"""
     if(phase==='prehistoric') {
       findNearbyDinosaur();
       if(interactable && interactable.userData.resourceEgg) {
-        interactable.userData.label='🥚 알 깨기 (E)';
+        interactable.userData.label='🥚 알 깨기 (Space / E)';
       } else if(!interactable && nearbyDinosaur) {
         interactable={userData:{label:'🦕 공룡에게 먹이 주기',trigger:'feedDino'}};
       }
@@ -1598,8 +1598,8 @@ GAME_HTML = r"""
         health=100; attack=50+Math.random()*20; defense=50+Math.random()*20; updateStats();
         combatTarget=null; playerShielding=false; shieldReadyAt=0; pulseReadyAt=0;
         setVisible('combatPanel',true);
-        $('help').textContent='WASD 이동 · 마우스 시점 · Space 점프 · Shift 달리기 · E 알 깨기 · Q 방어 · F 에너지 파동';
-        setSurvivalStatus('주변의 알을 찾아 E 키로 깨고 자원을 모아보세요!');
+        $('help').textContent='WASD 이동 · 마우스 시점 · Space 점프 (알 근처에서는 알 깨기) · E 상호작용 · Shift 달리기 · Q 방어 · F 에너지 파동';
+        setSurvivalStatus('주변의 알 가까이 가서 스페이스바 또는 E 키를 눌러 깨고 자원을 모아보세요!');
         setCombatNotice('공룡이 가까이 오면 전투가 시작돼요.',2600);
         refreshCombatPanel();
       }
@@ -1656,7 +1656,13 @@ GAME_HTML = r"""
     const k=e.key.toLowerCase(); keys[k]=true;
     if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault();
     if(k===' ' && !e.repeat && ['home','village','city','school','schoolWarning','schoolChase','prehistoric'].includes(phase)) {
-      jumpRequested=true;
+      // 선사시대에서 자원 알 가까이에 있을 때는 스페이스바로 알을 깨고,
+      // 알이 근처에 없을 때는 기존 점프 기능을 그대로 사용한다.
+      if(phase==='prehistoric' && interactable && interactable.userData && interactable.userData.resourceEgg) {
+        breakResourceEgg(interactable);
+      } else {
+        jumpRequested=true;
+      }
     }
     if(k==='q' && phase==='prehistoric') setPlayerShield(true);
     if(k==='f' && !e.repeat && phase==='prehistoric') fireEnergyPulse();
